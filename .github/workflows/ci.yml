@@ -20,7 +20,15 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          echo "✅ Dependencies installed"
+
+      - name: Debug Info
+        run: |
+          node -v
+          npm -v
+          npm ls --depth=0
 
       - name: Run tests
-        run: npm test
+        run: npm test -- --verbose
