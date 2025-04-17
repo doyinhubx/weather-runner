@@ -28,7 +28,9 @@ jobs:
         run: |
           node -v
           npm -v
-          npm ls --depth=0
+          npm ls --depth=1
 
-      - name: Run tests
-        run: npm test -- --verbose
+      - name: Run tests with verbose logging
+        run: |
+          echo "Running tests..."
+          npm test -- --verbose || (echo "❌ Tests failed! Check output above." && exit 1)
