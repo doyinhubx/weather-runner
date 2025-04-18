@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // Add this line at the top
 
 async function getWeather(city = 'London') {
   const response = await fetch(`https://wttr.in/${city}?format=j1`);
@@ -12,9 +12,9 @@ async function getWeather(city = 'London') {
 
 function getForecast() {
   return [
-    { day: 'Monday', high: 22, low: 15 },
-    { day: 'Tuesday', high: 24, low: 16 },
-    { day: 'Wednesday', high: 20, low: 14 }
+    { day: 'Monday', condition: 'Sunny' },
+    { day: 'Tuesday', condition: 'Rain' },
+    { day: 'Wednesday', condition: 'Cloudy' }
   ];
 }
 

@@ -1,10 +1,7 @@
-//const { getWeather, getForecast } = require('../src/weather');
-const { getWeather, getForecast } = require('../weather');
-
 const fetch = require('node-fetch');
+jest.mock('node-fetch'); // No need to use __esModule
 
-// Use this to mock fetch in getWeather
-jest.mock('node-fetch');
+const { getWeather, getForecast } = require('../weather');
 
 describe('Weather Functions', () => {
   test('getForecast returns 3 items', () => {
@@ -23,6 +20,7 @@ describe('Weather Functions', () => {
       ]
     };
 
+    // Properly mock the resolved value
     fetch.mockResolvedValue({
       json: async () => mockData
     });

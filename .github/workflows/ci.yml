@@ -2,9 +2,9 @@ name: Weather App CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-and-test:
@@ -20,17 +20,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: |
-          npm install
-          echo "✅ Dependencies installed"
+        run: npm ci
 
-      - name: Debug Info
-        run: |
-          node -v
-          npm -v
-          npm ls --depth=1
-
-      - name: Run tests with verbose logging
-        run: |
-          echo "Running tests..."
-          npm test -- --verbose || (echo "❌ Tests failed! Check output above." && exit 1)
+      - name: Run tests
+        run: npm test -- --ci --reporters=default --coverage
