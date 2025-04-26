@@ -1,7 +1,7 @@
 # 🌦️ Weather App CI/CD Demo
 
-![Coverage](https://coveralls.io/repos/github/YOUR_USERNAME/ci-cd-demo/badge.svg?branch=main)
-[![Actions Status](https://github.com/YOUR_USERNAME/ci-cd-demo/workflows/Weather%20App%20CI/badge.svg)](https://github.com/YOUR_USERNAME/ci-cd-demo/actions)
+![Coverage](https://coveralls.io/repos/github/doyinhubx/weather-runner/badge.svg?branch=main)
+[![Actions Status](https://github.com/doyinhubx/weather-runner/workflows/Weather%20App%20CI/badge.svg)](https://github.com/doyinhubx/weather-runner/actions)
 
 A simple Node.js project demonstrating CI/CD with GitHub Actions and test coverage reporting.
 
