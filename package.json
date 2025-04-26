@@ -2,6 +2,7 @@
   "name": "ci-cd-demo",
   "version": "1.0.0",
   "description": "Node.js CI/CD Demo",
+  "homepage": "https://doyinhubx.github.io/weather-runner",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
@@ -11,8 +12,8 @@
     "dev": "run-p start watch",
     "test": "jest",
     "lint": "eslint src/**/*.js",
-    "predeploy": "npm run build",  
-    "deploy": "gh-pages -d public"  
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d public"
   },
   "keywords": [],
   "author": "Doyin ELUGBADEBO",
@@ -22,6 +23,7 @@
     "browserify": "^17.0.1",
     "eslint": "^9.24.0",
     "eslint-plugin-security": "^3.0.1",
+    "gh-pages": "^6.3.0",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
@@ -35,4 +37,3 @@
     "node-fetch": "^2.6.9"
   }
 }
-
