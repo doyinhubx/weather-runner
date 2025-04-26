@@ -16,7 +16,38 @@ A simple Node.js project demonstrating CI/CD with GitHub Actions and test covera
 
 ---
 
-## 🧪 Run Tests
+### 🧪 Run Tests:
 
 ```bash
 npm test
+```
+
+### To view coverage:
+
+```
+npm test -- --coverage
+```
+
+### Development:
+
+```
+npm run dev
+```
+
+### Build:
+
+```
+npm run build
+```
+
+### Serve Locally:
+
+```
+npm start
+```
+
+App is served at http://localhost:5000
+
+## Contributing
+
+Feel free to fork, open PRs, and suggest improvements.
