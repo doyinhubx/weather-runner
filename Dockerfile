@@ -1,17 +1,29 @@
 # Use Node LTS image
-FROM node:18-alpine
+# FROM node:18-alpine
 
-# Create app directory
+# Use official Node.js image
+FROM node:18
+
+# Set working directory
 WORKDIR /app
 
-# Copy app files
+# Copy only package files first for better caching
 COPY package*.json ./
+
+# Install dependencies
 RUN npm ci
 
+# Copy the rest of the project
 COPY . .
 
-# Expose app on port 3000
-EXPOSE 3000
+# Build the app
+RUN npm run build
 
-# Start app
-CMD [ "npm", "start" ]
+# Install a simple static server
+RUN npm install -g serve
+
+# Expose the port
+EXPOSE 5000
+
+# Serve the built app
+CMD ["serve", "-s", "public", "-l", "5000"]
