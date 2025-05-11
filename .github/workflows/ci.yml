@@ -99,8 +99,8 @@ jobs:
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          firebase_token: ${{ secrets.FIREBASE_TOKEN }}
-          channel_id: staging-preview  # optional: can use preview channels too. For staging only
+          repoToken: ${{ secrets.FIREBASE_TOKEN }}
+          channelId: staging-preview  # optional: can use preview channels too. For staging only
 
   docker:
     name: Build & Push Docker Image
