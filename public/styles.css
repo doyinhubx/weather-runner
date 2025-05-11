@@ -101,3 +101,14 @@ footer {
 .weather button:hover {
   opacity: 0.9;
 }
+
+.project-description {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #4285f4; /* Firebase blue accent */
+}
