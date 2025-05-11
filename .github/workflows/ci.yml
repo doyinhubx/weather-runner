@@ -97,7 +97,7 @@ jobs:
         run: npm run build
 
       - name: Deploy to Firebase Hosting
-        uses: wzieba/Firebase-Action@v1
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebase_token: ${{ secrets.FIREBASE_TOKEN }}
           channel_id: staging-preview  # optional: can use preview channels too. For staging only
