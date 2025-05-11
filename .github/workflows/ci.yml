@@ -104,7 +104,7 @@ jobs:
 
   docker:
     name: Build & Push Docker Image
-    needs: deploy
+    needs: production-deploy
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
 
