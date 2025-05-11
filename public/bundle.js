@@ -1,4 +1,29 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+// wttr.in
+//---------------------------------------------------
+window.fetchCurrentWeather = async function () {
+  const city = document.getElementById('city-input').value.trim() || 'London';
+  const url = `https://wttr.in/${city}?format=j1`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const current = data.current_condition[0];
+    const temp = current.temp_C;
+    const desc = current.weatherDesc[0].value;
+
+    document.getElementById('current-weather').textContent =
+      `${city}: ${temp}°C - ${desc}`;
+  } catch (error) {
+    console.error('Error fetching weather:', error);
+    document.getElementById('current-weather').textContent = 'Unable to fetch weather.';
+  }
+};
+
+
+// Original
+//------------------------------------------------------------------
 // const data = require('./data/current.json');
 // const forecast = require('./data/forecast.json');
 
@@ -19,7 +44,7 @@
 // });
 
 
-// open weather without input
+// openweathermap.org without input
 //-----------------------------------------
 // window.fetchCurrentWeather = async function () {
 //   const city = 'London'; // Change to dynamic input if needed
@@ -39,7 +64,7 @@
 // };
 
 
-// open weather with Input
+// openweathermap.org with Input
 //-----------------------------------------
 // window.fetchCurrentWeather = async function () {
 //   const city = document.getElementById('city-input').value.trim() || 'London'; // Default to London if empty
@@ -64,52 +89,8 @@
 // };
 
 
-// wttr.in
-//---------------------------------------------------
-window.fetchCurrentWeather = async function () {
-  const city = document.getElementById('city-input').value.trim() || 'London';
-  const url = `https://wttr.in/${city}?format=j1`;
-
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const current = data.current_condition[0];
-    const temp = current.temp_C;
-    const desc = current.weatherDesc[0].value;
-
-    document.getElementById('current-weather').textContent =
-      `${city}: ${temp}°C - ${desc}`;
-  } catch (error) {
-    console.error('Error fetching weather:', error);
-    document.getElementById('current-weather').textContent = 'Unable to fetch weather.';
-  }
-};
 
 
-// // OLD Grettings - no useful as such
-// //--------------------------------------------------
-// window.getGreeting = async function () {
-//   try {
-//     const response = await fetch('/api/greet');
-//     const data = await response.json();
-//     document.getElementById('result').textContent = data.message;
-//   } catch (err) {
-//     console.error(err);
-//     document.getElementById('result').textContent = 'Error fetching greeting.';
-//   }
-// };
-
-// window.getTime = async function () {
-//   try {
-//     const response = await fetch('/api/time');
-//     const data = await response.json();
-//     document.getElementById('result').textContent = `Server time: ${data.time}`;
-//   } catch (err) {
-//     console.error(err);
-//     document.getElementById('result').textContent = 'Error fetching time.';
-//   }
-// };
 
 
 
