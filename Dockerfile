@@ -1,8 +1,6 @@
 # Use a lightweight NGINX base image
-# FROM node:18-alpine
+FROM node:20-alpine
 
-# Use official Node.js image
-# FROM node:18
 
 # Set working directory
 WORKDIR /app
