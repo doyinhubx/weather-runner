@@ -102,7 +102,7 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: weather-runner-70a64
-          channelId: staging-preview  # optional: can use preview channels too. For staging only
+          channelId: live  # optional: can use preview channels too. For staging only
 
   docker:
     name: Build & Push Docker Image
