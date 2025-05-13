@@ -16,8 +16,8 @@ jobs:
     name: Run CI (Lint, Test, Audit)
     runs-on: ubuntu-latest
     strategy:
-    matrix:
-      node-version: [18.x, 20.x, 21.x]  # Add versions you want to test against
+      matrix:
+        node-version: [18.x, 20.x, 21.x]  # Add versions you want to test against
 
     steps:
       - name: Checkout code
