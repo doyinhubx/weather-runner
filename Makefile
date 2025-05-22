@@ -214,3 +214,59 @@ deploy-prod:
 		git stash pop; \
 	fi; \
 	echo "🚀 Production deploy triggered via GitHub Actions. Switched back to $(CURRENT_BRANCH)."
+
+
+.PHONY: deploy-local
+
+deploy-local:
+	@if [ "$(CURRENT_BRANCH)" = "$(STAGING_BRANCH)" ] || [ "$(CURRENT_BRANCH)" = "$(MAIN_BRANCH)" ]; then \
+		echo "❌ ERROR: Run this from a feature branch, not '$(CURRENT_BRANCH)'."; \
+		exit 1; \
+	fi
+	@if ! git diff-index --quiet HEAD --; then \
+		echo "💾 Detected uncommitted changes. Stashing..."; \
+		git stash push -m "Auto-stash before local deploy"; \
+		TO_RESTORE_STASH=true; \
+	else \
+		TO_RESTORE_STASH=false; \
+	fi; \
+	echo "🔄 Merging $(CURRENT_BRANCH) into a temporary local '$(STAGING_BRANCH)'..."; \
+	git fetch origin $(STAGING_BRANCH); \
+	git checkout -b temp-merge-test origin/$(STAGING_BRANCH); \
+	git merge $(CURRENT_BRANCH); \
+	echo "✅ Local merge successful."; \
+	git checkout $(CURRENT_BRANCH); \
+	git branch -D temp-merge-test; \
+	if $$TO_RESTORE_STASH; then \
+		echo "♻️ Restoring stashed changes..."; \
+		git stash pop; \
+	fi; \
+	echo "🧪 Local deploy test complete. No remote changes made."
+
+release:
+	@echo "🔖 Current version: $$(cat $(VERSION_FILE))"
+	@# Read current version into variables
+	@ver=$$(cat $(VERSION_FILE)); \
+	major=$$(echo $$ver | cut -d. -f1); \
+	minor=$$(echo $$ver | cut -d. -f2); \
+	patch=$$(echo $$ver | cut -d. -f3); \
+	\
+	# Simple patch bump: increment patch version by 1 \
+	new_patch=$$(($$patch + 1)); \
+	new_version="$$major.$$minor.$$new_patch"; \
+	\
+	echo "⬆️ Bumping version to $$new_version"; \
+	echo $$new_version > $(VERSION_FILE); \
+	\
+	# Commit the version bump \
+	git add $(VERSION_FILE); \
+	git commit -m "chore: bump version to $$new_version"; \
+	\
+	# Tag the commit \
+	git tag -a "v$$new_version" -m "Release version $$new_version"; \
+	\
+	# Push commit and tag \
+	git push origin $(CURRENT_BRANCH); \
+	git push origin "v$$new_version"; \
+	\
+	echo "✅ Released version $$new_version"
