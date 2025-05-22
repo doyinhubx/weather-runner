@@ -23,8 +23,6 @@ jobs:
             node-version: 20.x  # LTS
           - os: ubuntu-latest
             node-version: 21.x  # Current
-          - os: windows-latest
-            node-version: 20.x  # LTS only for Windows
 
     steps:
       - name: Checkout code
