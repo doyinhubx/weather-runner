@@ -204,4 +204,3 @@ deploy-prod:
 	git push origin $(MAIN_BRANCH)
 	git checkout $(CURRENT_BRANCH)
 	@echo "🚀 Production deploy triggered via GitHub Actions. Switched back to $(CURRENT_BRANCH)."
-```
