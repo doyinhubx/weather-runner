@@ -155,9 +155,97 @@
 
 
 
+# # Local deploys
+# #-----------------------------------------------------------------
+# STAGING_BRANCH=staging
+# MAIN_BRANCH=main
+
+# # Auto-detect the current branch before switching
+# CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+
+# .PHONY: deploy-staging deploy-prod
+
+# deploy-staging:
+# 	@if [ "$(CURRENT_BRANCH)" = "$(STAGING_BRANCH)" ] || [ "$(CURRENT_BRANCH)" = "$(MAIN_BRANCH)" ]; then \
+# 		echo "❌ ERROR: You must run this from a feature branch, not '$(CURRENT_BRANCH)'."; \
+# 		exit 1; \
+# 	fi
+# 	@if ! git diff-index --quiet HEAD --; then \
+# 		echo "💡 Uncommitted changes detected:"; \
+# 		git status --short; \
+# 		echo "💾 Stashing changes..."; \
+# 		git stash push -m "Auto-stash before staging deploy"; \
+# 		TO_RESTORE_STASH=true; \
+# 	else \
+# 		TO_RESTORE_STASH=false; \
+# 	fi; \
+# 	echo "✅ Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
+# 	git checkout $(STAGING_BRANCH); \
+# 	git pull origin $(STAGING_BRANCH); \
+# 	git merge $(CURRENT_BRANCH); \
+# 	git push origin $(STAGING_BRANCH); \
+# 	git checkout $(CURRENT_BRANCH); \
+# 	if $$TO_RESTORE_STASH; then \
+# 		echo "♻️ Restoring stashed changes..."; \
+# 		git stash pop; \
+# 	fi; \
+# 	echo "🚀 Staging deploy triggered via GitHub Actions. Switched back to $(CURRENT_BRANCH)."
+
+# deploy-prod:
+# 	@if ! git diff-index --quiet HEAD --; then \
+# 		echo "💡 Uncommitted changes detected:"; \
+# 		git status --short; \
+# 		echo "💾 Stashing changes..."; \
+# 		git stash push -m "Auto-stash before production deploy"; \
+# 		TO_RESTORE_STASH=true; \
+# 	else \
+# 		TO_RESTORE_STASH=false; \
+# 	fi; \
+# 	echo "✅ Merging $(STAGING_BRANCH) into $(MAIN_BRANCH)..."; \
+# 	git checkout $(MAIN_BRANCH); \
+# 	git pull origin $(MAIN_BRANCH); \
+# 	git merge $(STAGING_BRANCH); \
+# 	git push origin $(MAIN_BRANCH); \
+# 	git checkout $(CURRENT_BRANCH); \
+# 	if $$TO_RESTORE_STASH; then \
+# 		echo "♻️ Restoring stashed changes..."; \
+# 		git stash pop; \
+# 	fi; \
+# 	echo "🚀 Production deploy triggered via GitHub Actions. Switched back to $(CURRENT_BRANCH)."
 
 
-#  Updated Makefile with git status output before stashing:
+# .PHONY: deploy-local
+
+# deploy-local:
+# 	@if [ "$(CURRENT_BRANCH)" = "$(STAGING_BRANCH)" ] || [ "$(CURRENT_BRANCH)" = "$(MAIN_BRANCH)" ]; then \
+# 		echo "❌ ERROR: Run this from a feature branch, not '$(CURRENT_BRANCH)'."; \
+# 		exit 1; \
+# 	fi
+# 	@if ! git diff-index --quiet HEAD --; then \
+# 		echo "💾 Detected uncommitted changes. Stashing..."; \
+# 		git stash push -m "Auto-stash before local deploy"; \
+# 		TO_RESTORE_STASH=true; \
+# 	else \
+# 		TO_RESTORE_STASH=false; \
+# 	fi; \
+# 	echo "🔄 Merging $(CURRENT_BRANCH) into a temporary local '$(STAGING_BRANCH)'..."; \
+# 	git fetch origin $(STAGING_BRANCH); \
+# 	git checkout -b temp-merge-test origin/$(STAGING_BRANCH); \
+# 	git merge $(CURRENT_BRANCH); \
+# 	echo "✅ Local merge successful."; \
+# 	git checkout $(CURRENT_BRANCH); \
+# 	git branch -D temp-merge-test; \
+# 	if $$TO_RESTORE_STASH; then \
+# 		echo "♻️ Restoring stashed changes..."; \
+# 		git stash pop; \
+# 	fi; \
+# 	echo "🧪 Local deploy test complete. No remote changes made."
+
+
+
+
+
+#  Semantic patch for version bump + tagging
 #-----------------------------------------------------------------
 STAGING_BRANCH=staging
 MAIN_BRANCH=main
