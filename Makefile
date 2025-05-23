@@ -331,30 +331,30 @@ deploy-local:
 	fi; \
 	echo "🧪 Local deploy test complete. No remote changes made."
 
+VERSION_FILE=VERSION
+INDEX_HTML=public/index.html
+
 release:
 	@echo "🔖 Current version: $$(cat $(VERSION_FILE))"
-	@# Read current version into variables
 	@ver=$$(cat $(VERSION_FILE)); \
 	major=$$(echo $$ver | cut -d. -f1); \
 	minor=$$(echo $$ver | cut -d. -f2); \
 	patch=$$(echo $$ver | cut -d. -f3); \
 	\
-	# Simple patch bump: increment patch version by 1 \
 	new_patch=$$(($$patch + 1)); \
 	new_version="$$major.$$minor.$$new_patch"; \
 	\
 	echo "⬆️ Bumping version to $$new_version"; \
 	echo $$new_version > $(VERSION_FILE); \
 	\
-	# Commit the version bump \
-	git add $(VERSION_FILE); \
+	# Replace version in index.html \
+	sed -i.bak -E "s/app version [0-9]+\.[0-9]+\.[0-9]+/app version $$new_version/" $(INDEX_HTML); \
+	rm -f $(INDEX_HTML).bak; \
+	\
+	# Commit and tag \
+	git add $(VERSION_FILE) $(INDEX_HTML); \
 	git commit -m "chore: bump version to $$new_version"; \
-	\
-	# Tag the commit \
 	git tag -a "v$$new_version" -m "Release version $$new_version"; \
-	\
-	# Push commit and tag \
 	git push origin $(CURRENT_BRANCH); \
 	git push origin "v$$new_version"; \
-	\
 	echo "✅ Released version $$new_version"
