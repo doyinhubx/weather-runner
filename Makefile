@@ -513,8 +513,7 @@ release:
 	echo "$$new_version" > $(VERSION_FILE); \
 	\
 	# Update version in index.html \
-	sed -i '' -E "s/app version [0-9]+\.[0-9]+\.[0-9]+/app version $$new_version/" $(INDEX_HTML) || \
-	sed -i -E "s/app version [0-9]+\.[0-9]+\.[0-9]+/app version $$new_version/" $(INDEX_HTML); \
+	@sed -i "s/app version [0-9]\+\.[0-9]\+\.[0-9]\+/app version $$new_version/" $(INDEX_HTML)
 	\
 	git add $(VERSION_FILE) $(INDEX_HTML); \
 	git commit -m "chore: bump version to $$new_version"; \
@@ -522,7 +521,6 @@ release:
 	git push origin $$CURRENT_BRANCH; \
 	git push origin "v$$new_version"; \
 	echo "✅ Released version $$new_version from branch '$$CURRENT_BRANCH'"
-
 
 #production deploy and version bump with a single command
 .PHONY: deploy-and-release
