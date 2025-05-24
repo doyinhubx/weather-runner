@@ -5,11 +5,13 @@ on:
     branches:
       - main
       - staging
+      - dev
       - feature/**  # allows feature branches like feature/ci-cd-enhancements
   pull_request:
     branches:
       - main
       - staging
+      - dev
 
 jobs:
   ci:
@@ -143,7 +145,55 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: weather-runner-70a64
           channelId: live  # optional: can use preview channels too (staging-preview)
-          
+  
+  dev-deploy:
+    name: Deploy to Google Cloud Run (Dev)
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'  # Simplifies dependency caching
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}  # Explicit project setting
+
+      - name: Deploy to Cloud Run (Dev)
+        id: deploy  # Important for outputs.url
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: weather-app-dev
+          region: us-central1
+          source: .
+          env_vars: "NODE_ENV=dev"
+          flags: |
+            --timeout=5m
+            --port=8080
+            --allow-unauthenticated
+      
   docker:
     name: Build & Push Docker Image
     needs: production-deploy
