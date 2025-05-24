@@ -64,6 +64,9 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # only for main
+    environment:
+      name: production
+      url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
 
     steps:
       - name: Checkout code
@@ -104,7 +107,10 @@ jobs:
     name: Deploy to Firebase Hosting (Staging)
     needs: ci
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/staging'  # only for staging
+    if: github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url: https://weather-runner-70a64.web.app/  # only for staging
 
     steps:
       - name: Checkout code
