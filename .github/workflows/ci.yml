@@ -194,8 +194,8 @@ jobs:
           id: deploy
           run: |
             gcloud run deploy weather-app-dev \
-              --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
-              --project ${{ secrets.GCP_PROJECT_ID }} \  
+              --image docker.io/***/weather-app:latest \
+              --project *** \
               --region us-central1 \
               --platform managed \
               --allow-unauthenticated \
