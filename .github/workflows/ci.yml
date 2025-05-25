@@ -193,9 +193,10 @@ jobs:
         - name: Deploy to Cloud Run (Dev)
           id: deploy
           run: |
+            # This is crucial: specify project ID
             gcloud run deploy weather-app-dev \
               --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
-              --project ${{ secrets.GCP_PROJECT_ID }} \  # THIS IS CRUCIAL
+              --project ${{ secrets.GCP_PROJECT_ID }} \  
               --region us-central1 \
               --platform managed \
               --allow-unauthenticated \
