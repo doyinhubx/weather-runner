@@ -45,3 +45,8 @@ Thumbs.db
 
 # Frontend
 frontend/
+
+#Terraform
+.terraform/
+.tfstate
+.tfstate.backup
