@@ -155,18 +155,25 @@ services = [
 ]
 
 enabled_apis = []
+iam_api_resource = None  # Track separately
+
 for service in services:
-    enabled_api = gcp.projects.Service(
+    resource = gcp.projects.Service(
         f"enable-{service}",
         service=service,
         project=project,
         disable_on_destroy=False,
         opts=ResourceOptions(provider=gcp_provider)
     )
-    enabled_apis.append(enabled_api)
+    enabled_apis.append(resource)
 
-# Find iam.googleapis.com resource for propagation wait
-iam_api_resource = next(api for api in enabled_apis if api.service == "iam.googleapis.com")
+    if service == "iam.googleapis.com":
+        iam_api_resource = resource
+
+if iam_api_resource is None:
+    raise Exception("iam.googleapis.com API was not found in enabled_apis.")
+
+
 
 # Create Artifact Registry repository
 repo = gcp.artifactregistry.Repository(
