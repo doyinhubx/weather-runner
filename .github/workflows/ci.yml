@@ -447,6 +447,7 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
           project_id: ${{ secrets.GCP_PROJECT_ID }}
+          create_credentials_file: true  # Creates ADC file
           export_environment_variables: true
 
       - name: Set up Cloud SDK

@@ -253,8 +253,8 @@ app_image = docker.Image(
     ),
     registry=docker.RegistryArgs(
     server=f"{region}-docker.pkg.dev",
-    username="_json_key",
-    password=config.require_secret("gcp:credentials")
+    username="_json_key"
+    #password=config.require_secret("gcp:credentials")
 	),
     opts=ResourceOptions(
         depends_on=[repo, *role_bindings]
