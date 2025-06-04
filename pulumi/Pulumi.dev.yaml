@@ -1,0 +1,7 @@
+config:
+  gcp:project: weather-app2-460914
+  gcp:region: us-central1
+  gcp:zone: us-central1-a
+  pulumi-gcp-crun:project: weather-app2-460914
+  pulumi-gcp-crun:region: us-central1
+  pulumi-gcp-crun:zone: us-central1-a

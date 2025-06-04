@@ -50,3 +50,8 @@ frontend/
 .terraform/
 .tfstate
 .tfstate.backup
+
+
+#Pulumi
+.pulumi/
+pulumi/venv*

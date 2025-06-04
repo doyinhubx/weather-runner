@@ -145,7 +145,10 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: weather-runner-70a64
           channelId: live  # optional: can use preview channels too (staging-preview)
-              
+         
+
+  # DockerHub
+  #-----------------------------------------------------------     
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
   #   needs: ci
@@ -216,9 +219,207 @@ jobs:
   #         SERVICE_URL=$(gcloud run services describe weather-app-dev --region us-central1 --format 'value(status.url)')
   #         echo "Deployed to: $SERVICE_URL"
       
+
+  # # Artifact Registry
+  # #-----------------------------------------------------------
+  # dev-deploy:
+  #   name: Deploy to Google Cloud Run (Dev)
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/dev'
+  #   environment:
+  #     name: dev
+  #     url: ${{ steps.deploy.outputs.url }}
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20.x'
+  #         cache: 'npm'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Build project
+  #       run: npm run build
+
+  #     - name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+  #     - name: Set up Cloud SDK
+  #       uses: google-github-actions/setup-gcloud@v2
+
+  #     - name: Configure Docker to use Artifact Registry
+  #       run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+  #     - name: Build Docker image
+  #       run: |
+  #         docker build \
+  #           -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest \
+  #           -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:${{ github.sha }} \
+  #           .
+
+  #     - name: Push Docker images to Artifact Registry
+  #       run: |
+  #         docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest
+  #         docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:${{ github.sha }}
+
+  #     - name: Deploy to Cloud Run (Dev)
+  #       id: deploy
+  #       run: |
+  #         gcloud run deploy weather-app-dev \
+  #           --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest \
+  #           --region us-central1 \
+  #           --platform managed \
+  #           --allow-unauthenticated \
+  #           --update-env-vars NODE_ENV=dev \
+  #           --timeout 5m \
+  #           --port 8080
+
+  #     - name: Output Cloud Run URL
+  #       run: |
+  #         SERVICE_URL=$(gcloud run services describe weather-app-dev --region us-central1 --format 'value(status.url)')
+  #         echo "Deployed to: $SERVICE_URL"
+
+  #     - name: Notify Slack of Dev Deploy
+  #       if: success()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+  #         SLACK_MESSAGE: |
+  #           ✅ *Dev Deployment Successful*
+  #           Repo: `${{ github.repository }}`
+  #           Branch: `${{ github.ref_name }}`
+  #           Commit: `${{ github.sha }}`
+  #         SLACK_COLOR: good
+  #     - name: Notify Slack of Dev Deploy Failure
+  #       if: failure()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+  #         SLACK_MESSAGE: |
+  #           ❌ *Dev Deployment Failed*
+  #           Repo: `${{ github.repository }}`
+  #           Branch: `${{ github.ref_name }}`
+  #           Commit: `${{ github.sha }}`
+  #         SLACK_COLOR: danger
+
+# # Infra Deploy for Node backend
+# #-----------------------------------------------------------------
+#   infra-deploy:
+#     name: Provision GCP Infra via Pulumi (Dev)
+#     needs: ci
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/dev'
+#     environment:
+#       name: dev
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Pulumi
+#         uses: pulumi/actions@v4
+#         with:
+#           pulumi-version: 3.x
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+#       - name: Set up Cloud SDK
+#         uses: google-github-actions/setup-gcloud@v2
+
+#       - name: Install Node.js for Pulumi (if using Node backend)
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '20.x'
+
+#       - name: Install Pulumi dependencies
+#         run: npm ci
+#         working-directory: ./pulumi
+
+#       - name: Run Pulumi preview
+#         run: pulumi preview -s dev
+#         working-directory: ./pulumi
+#         env:
+#           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+#       - name: Deploy infra with Pulumi
+#         run: pulumi up --yes -s dev
+#         working-directory: ./pulumi
+#         env:
+#           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+
+# # Infra Deploy for Python backend
+# #-----------------------------------------------------------------
+  infra-deploy:
+    name: Provision GCP Infra via Pulumi (Dev)
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Pulumi
+        uses: pulumi/actions@v4
+        with:
+          pulumi-version: 3.x
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up virtual environment and install Python dependencies
+        working-directory: ./pulumi
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Run Pulumi preview
+        working-directory: ./pulumi
+        run: |
+          source venv/bin/activate
+          pulumi preview -s dev
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Deploy infra with Pulumi
+        working-directory: ./pulumi
+        run: |
+          source venv/bin/activate
+          pulumi up --yes -s dev
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
   dev-deploy:
     name: Deploy to Google Cloud Run (Dev)
-    needs: ci
+    needs: [ci, infra-deploy]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev'
     environment:
@@ -256,20 +457,20 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest \
-            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:${{ github.sha }} \
+            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
             .
 
-      - name: Push Docker images to Artifact Registry
+      - name: Push Docker images
         run: |
-          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest
-          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:${{ github.sha }}
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
 
-      - name: Deploy to Cloud Run (Dev)
+      - name: Deploy to Cloud Run
         id: deploy
         run: |
-          gcloud run deploy weather-app-dev \
-            --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest \
+          gcloud run deploy nodejs-cloudrun-service \
+            --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
             --region us-central1 \
             --platform managed \
             --allow-unauthenticated \
@@ -279,7 +480,7 @@ jobs:
 
       - name: Output Cloud Run URL
         run: |
-          SERVICE_URL=$(gcloud run services describe weather-app-dev --region us-central1 --format 'value(status.url)')
+          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region us-central1 --format 'value(status.url)')
           echo "Deployed to: $SERVICE_URL"
 
       - name: Notify Slack of Dev Deploy
@@ -293,6 +494,7 @@ jobs:
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`
           SLACK_COLOR: good
+
       - name: Notify Slack of Dev Deploy Failure
         if: failure()
         uses: rtCamp/action-slack-notify@v2
@@ -304,7 +506,6 @@ jobs:
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`
           SLACK_COLOR: danger
-
   docker:
     name: Build & Push Docker Image
     needs: production-deploy
