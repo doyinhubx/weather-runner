@@ -174,7 +174,6 @@ if iam_api_resource is None:
     raise Exception("iam.googleapis.com API was not found in enabled_apis.")
 
 
-
 # Create Artifact Registry repository
 repo = gcp.artifactregistry.Repository(
     "my-nodejs-app-repo",
@@ -252,11 +251,11 @@ app_image = docker.Image(
         dockerfile="Dockerfile",
         args={"NODE_ENV": "production"}
     ),
-    registry=docker.ImageRegistryArgs(
-        server=f"{region}-docker.pkg.dev",
-        username="_json_key",
-        password=config.require_secret("gcp:credentials")
-    ),
+    registry=docker.RegistryArgs(
+    server=f"{region}-docker.pkg.dev",
+    username="_json_key",
+    password=config.require_secret("gcp:credentials")
+	),
     opts=ResourceOptions(
         depends_on=[repo, *role_bindings]
     )
