@@ -128,12 +128,12 @@ region = config.require("region")
 
 # Enable required APIs
 services = [
-    "run.googleapis.com",                        # Cloud Run API
-    "artifactregistry.googleapis.com",           # Artifact Registry API
-    "cloudbuild.googleapis.com",                 # Cloud Build API
-    "iam.googleapis.com",                        # Identity and Access Management API
-    "serviceusage.googleapis.com",               # API Service Usage
-    "cloudresourcemanager.googleapis.com"        # Resource Manager API 
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "iam.googleapis.com",
+    "serviceusage.googleapis.com",
+    "cloudresourcemanager.googleapis.com"
 ]
 
 for service in services:
@@ -159,7 +159,32 @@ except:
         project=project
     )
 
-# Create or get service account for Cloud Run
+# Define deployer service account email (from GitHub Actions Pulumi deployer)
+deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+
+# Grant deployer SA permission to deploy to Artifact Registry & Cloud Run
+gcp.projects.IAMMember(
+    "grant-artifactregistry-writer-to-deployer",
+    project=project,
+    role="roles/artifactregistry.writer",
+    member=f"serviceAccount:{deployer_sa_email}"
+)
+
+gcp.projects.IAMMember(
+    "grant-run-admin-to-deployer",
+    project=project,
+    role="roles/run.admin",
+    member=f"serviceAccount:{deployer_sa_email}"
+)
+
+gcp.projects.IAMMember(
+    "grant-sa-user-to-deployer",
+    project=project,
+    role="roles/iam.serviceAccountUser",
+    member=f"serviceAccount:{deployer_sa_email}"
+)
+
+# Create or get Cloud Run runtime service account
 try:
     cloud_run_sa = gcp.serviceaccount.Account.get(
         "cloud-run-sa",
@@ -171,21 +196,6 @@ except:
         account_id="cloud-run-sa",
         display_name="Cloud Run Service Account",
         project=project
-    )
-
-# Grant required roles to service account
-required_roles = [
-    "roles/run.admin",
-    "roles/artifactregistry.writer",
-    "roles/iam.serviceAccountUser"
-]
-
-for role in required_roles:
-    gcp.projects.IAMMember(
-        f"grant-{role.split('/')[-1]}",
-        project=project,
-        role=role,
-        member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}")
     )
 
 # Define Docker image name for Artifact Registry
@@ -235,3 +245,4 @@ pulumi.export("cloud_run_url", cloud_run_service.uri)
 pulumi.export("docker_image_url", image_url)
 pulumi.export("service_account_email", cloud_run_sa.email)
 pulumi.export("service_account_name", cloud_run_sa.name)
+
