@@ -122,18 +122,17 @@ import pulumi_gcp as gcp
 import pulumi_docker as docker
 
 
-# Add this near the top of your Pulumi program
+# Configs
+config = pulumi.Config()
+project = config.require("project")
+region = config.require("region")
+
+# near the top of your Pulumi program
 gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region
 )
-
-
-# Configs
-config = pulumi.Config()
-project = config.require("project")
-region = config.require("region")
 
 # Enable required APIs
 services = [
