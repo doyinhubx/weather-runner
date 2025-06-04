@@ -121,6 +121,15 @@ import pulumi
 import pulumi_gcp as gcp
 import pulumi_docker as docker
 
+
+# Add this near the top of your Pulumi program
+gcp_provider = gcp.Provider(
+    "gcp-provider",
+    project=project,
+    region=region
+)
+
+
 # Configs
 config = pulumi.Config()
 project = config.require("project")
@@ -203,12 +212,26 @@ image_url = pulumi.Output.concat(
     region, "-docker.pkg.dev/", project, "/my-nodejs-app-repo/nodejs-app"
 )
 
-# Build Docker image and push to Artifact Registry
+# # Build Docker image and push to Artifact Registry
+# app_image = docker.Image(
+#     "nodejs-app-image",
+#     image_name=image_url,
+#     build=docker.DockerBuildArgs(context="..")  # root of weather-app/
+# )
+
+
+# Update your docker.Image resource to include registry auth
 app_image = docker.Image(
     "nodejs-app-image",
     image_name=image_url,
-    build=docker.DockerBuildArgs(context="..")  # root of weather-app/
+    build=docker.DockerBuildArgs(context=".."),
+    registry=docker.ImageRegistryArgs(
+        server=f"{region}-docker.pkg.dev"
+        # username="_json_key",
+        # password=pulumi.Output.secret(config.require("gcp:credentials"))
+    )
 )
+
 
 # Labels for tracking
 labels = {
