@@ -128,20 +128,20 @@ config = pulumi.Config()
 project = config.require("project")
 region = config.require("region")
 
-# Create GCP provider with explicit credentials
+# Create GCP provider
 gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region
-    #credentials=config.require_secret("gcp:credentials")
 )
 
-def wait_for_iam_propagation(resource_name):
+# Helper: Wait for IAM propagation by sleeping and returning ResourceOptions
+def wait_for_iam_propagation(resource: pulumi.Resource):
     """Wait 60 seconds after creating a resource to allow IAM propagation"""
     time.sleep(60)
     return ResourceOptions(
         provider=gcp_provider,
-        depends_on=[resource_name]
+        depends_on=[resource]
     )
 
 # Enable required APIs
@@ -165,6 +165,9 @@ for service in services:
     )
     enabled_apis.append(enabled_api)
 
+# Find iam.googleapis.com resource for propagation wait
+iam_api_resource = next(api for api in enabled_apis if api.service == "iam.googleapis.com")
+
 # Create Artifact Registry repository
 repo = gcp.artifactregistry.Repository(
     "my-nodejs-app-repo",
@@ -178,10 +181,10 @@ repo = gcp.artifactregistry.Repository(
     )
 )
 
-# Define deployer service account (from GitHub Actions)
+# Deployer service account email (used by GitHub Actions)
 deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
-# Grant necessary permissions to deployer SA
+# Grant roles to deployer service account
 required_roles = [
     ("artifactregistry-writer", "roles/artifactregistry.writer"),
     ("run-admin", "roles/run.admin"),
@@ -196,7 +199,7 @@ for role_name, role in required_roles:
         project=project,
         role=role,
         member=f"serviceAccount:{deployer_sa_email}",
-        opts=wait_for_iam_propagation("enable-iam.googleapis.com")
+        opts=wait_for_iam_propagation(iam_api_resource)
     )
     role_bindings.append(binding)
 
@@ -212,7 +215,7 @@ cloud_run_sa = gcp.serviceaccount.Account(
     )
 )
 
-# Grant Cloud Run SA necessary permissions
+# Grant roles to Cloud Run service account
 cloud_run_roles = [
     ("run-invoker", "roles/run.invoker"),
     ("logging-log-writer", "roles/logging.logWriter"),
@@ -228,21 +231,19 @@ for role_name, role in cloud_run_roles:
         opts=wait_for_iam_propagation(cloud_run_sa)
     )
 
-# Configure Docker image
+# Define Docker image URL for Artifact Registry
 image_url = pulumi.Output.concat(
     region, "-docker.pkg.dev/", project, "/my-nodejs-app-repo/nodejs-app"
 )
 
-# Build and push Docker image with proper authentication
+# Build and push Docker image
 app_image = docker.Image(
     "nodejs-app-image",
     image_name=image_url,
     build=docker.DockerBuildArgs(
-        context="../",  # Points to your application root
+        context="../",  # Adjust path to your Node.js app root
         dockerfile="Dockerfile",
-        args={
-            "NODE_ENV": "production"
-        }
+        args={"NODE_ENV": "production"}
     ),
     registry=docker.ImageRegistryArgs(
         server=f"{region}-docker.pkg.dev",
@@ -264,18 +265,15 @@ cloud_run_service = gcp.cloudrunv2.Service(
         containers=[
             gcp.cloudrunv2.ServiceTemplateContainerArgs(
                 image=app_image.image_name,
-                ports=[gcp.cloudrunv2.ServiceTemplateContainerPortArgs(
-                    container_port=8080  # Must match your app's port
-                )],
+                ports=[gcp.cloudrunv2.ServiceTemplateContainerPortArgs(container_port=8080)],
                 envs=[
                     gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="NODE_ENV",
-                        value="production"
+                        name="NODE_ENV", value="production"
                     )
                 ]
             )
         ],
-        service_account=cloud_run_sa.email,
+        service_account=cloud_run_sa.email
     ),
     traffics=[
         gcp.cloudrunv2.ServiceTrafficArgs(
@@ -289,7 +287,7 @@ cloud_run_service = gcp.cloudrunv2.Service(
     )
 )
 
-# Export important URLs and identifiers
+# Outputs
 pulumi.export("cloud_run_url", cloud_run_service.uri)
 pulumi.export("docker_image_url", image_url)
 pulumi.export("service_account_email", cloud_run_sa.email)
