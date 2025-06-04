@@ -272,15 +272,16 @@ cloud_run_service = gcp.cloudrunv2.Service(
         containers=[
             gcp.cloudrunv2.ServiceTemplateContainerArgs(
                 image=app_image.image_name,
-                ports=[gcp.cloudrunv2.ServiceTemplateContainerPortArgs(container_port=8080)],
+                ports=[{'container_port': 8080}],  # Dictionary syntax
                 envs=[
                     gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="NODE_ENV", value="production"
+                        name="NODE_ENV",
+                        value="production"
                     )
                 ]
             )
         ],
-        service_account=cloud_run_sa.email
+        service_account=cloud_run_sa.email,
     ),
     traffics=[
         gcp.cloudrunv2.ServiceTrafficArgs(
