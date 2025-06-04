@@ -272,7 +272,7 @@ cloud_run_service = gcp.cloudrunv2.Service(
         containers=[
             gcp.cloudrunv2.ServiceTemplateContainerArgs(
                 image=app_image.image_name,
-                ports=[gcp.cloudrunv2.ServiceTemplateContainersPortArgs(container_port=8080)],
+                ports=[gcp.cloudrunv2.ServiceTemplateContainerPortArgs(container_port=8080)],
                 envs=[
                     gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
                         name="NODE_ENV", value="production"
