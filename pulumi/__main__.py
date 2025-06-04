@@ -248,7 +248,7 @@ app_image = docker.Image(
     image_name=image_url,
     build=docker.DockerBuildArgs(
         context="../",  # Adjust path to your Node.js app root
-        dockerfile="Dockerfile",
+        dockerfile="../Dockerfile",  # Explicit path to Dockerfile
         args={"NODE_ENV": "production"}
     ),
     registry=docker.RegistryArgs(
