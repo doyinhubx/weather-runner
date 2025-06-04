@@ -128,11 +128,12 @@ region = config.require("region")
 
 # Enable required APIs
 services = [
-    "run.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "iam.googleapis.com",
-    "serviceusage.googleapis.com"
+    "run.googleapis.com",                        # Cloud Run API
+    "artifactregistry.googleapis.com",           # Artifact Registry API
+    "cloudbuild.googleapis.com",                 # Cloud Build API
+    "iam.googleapis.com",                        # Identity and Access Management API
+    "serviceusage.googleapis.com",               # API Service Usage
+    "cloudresourcemanager.googleapis.com"        # Resource Manager API 
 ]
 
 for service in services:
