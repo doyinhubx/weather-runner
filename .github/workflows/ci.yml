@@ -401,7 +401,6 @@ jobs:
           source venv/bin/activate
           pip install -r requirements.txt
 
-
       # NEW: Initialize or select Pulumi stack
       - name: Set up Pulumi stack
         working-directory: ./pulumi
