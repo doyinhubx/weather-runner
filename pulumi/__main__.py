@@ -480,19 +480,44 @@ gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region,
-    # Add this to ignore the Compute Engine API warning
+    # Suppress warnings about project changes
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
-# Enable required APIs
+# Deployer service account email
+deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+
+# Required IAM roles for deployer service account
+required_roles = [
+    ("serviceusage-admin", "roles/serviceusage.serviceUsageAdmin"),  # Essential for API enablement
+    ("artifactregistry-admin", "roles/artifactregistry.admin"),
+    ("run-admin", "roles/run.admin"),
+    ("sa-user", "roles/iam.serviceAccountUser"),
+    ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
+    ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin")
+]
+
+# Grant roles to deployer service account - MUST BE FIRST
+iam_grants = []
+for role_name, role in required_roles:
+    grant = gcp.projects.IAMMember(
+        f"grant-{role_name}-to-deployer",
+        project=project,
+        role=role,
+        member=f"serviceAccount:{deployer_sa_email}",
+        opts=ResourceOptions(provider=gcp_provider)
+    )
+    iam_grants.append(grant)
+
+# Enable required APIs - DEPENDS ON IAM GRANTS
 services = [
+    "serviceusage.googleapis.com",  # Must be first
+    "compute.googleapis.com",
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "iam.googleapis.com",
-    "serviceusage.googleapis.com",
-    "cloudresourcemanager.googleapis.com",
-    "compute.googleapis.com"
+    "cloudresourcemanager.googleapis.com"
 ]
 
 enabled_apis = []
@@ -502,34 +527,14 @@ for service in services:
         service=service,
         project=project,
         disable_on_destroy=False,
-        opts=ResourceOptions(provider=gcp_provider)
+        opts=ResourceOptions(
+            provider=gcp_provider,
+            depends_on=iam_grants  # Critical dependency
+        )
     )
     enabled_apis.append(resource)
 
-# Deployer service account email
-deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
-
-# Grant roles to deployer service account - MUST BE BEFORE REPOSITORY CREATION
-required_roles = [
-    ("artifactregistry-admin", "roles/artifactregistry.admin"),  # Elevated permissions
-    ("run-admin", "roles/run.admin"),
-    ("sa-user", "roles/iam.serviceAccountUser"),
-    ("cloudbuild-editor", "roles/cloudbuild.builds.editor")
-]
-
-for role_name, role in required_roles:
-    gcp.projects.IAMMember(
-        f"grant-{role_name}-to-deployer",
-        project=project,
-        role=role,
-        member=f"serviceAccount:{deployer_sa_email}",
-        opts=ResourceOptions(
-            provider=gcp_provider,
-            depends_on=enabled_apis  # Wait for APIs to be enabled
-        )
-    )
-
-# Artifact Registry - DEPENDS ON PERMISSIONS BEING GRANTED
+# Artifact Registry - DEPENDS ON ENABLED APIS
 repo = gcp.artifactregistry.Repository(
     "my-nodejs-app-repo",
     format="DOCKER",
@@ -538,12 +543,12 @@ repo = gcp.artifactregistry.Repository(
     project=project,
     opts=ResourceOptions(
         provider=gcp_provider,
-        depends_on=enabled_apis  # Wait for APIs to be enabled
+        depends_on=enabled_apis
     ),
     labels={}
 )
 
-# Service account for Cloud Run
+# Service account for Cloud Run - DEPENDS ON ENABLED APIS
 cloud_run_sa = gcp.serviceaccount.Account(
     "cloud-run-sa",
     account_id="cloud-run-sa",
@@ -551,7 +556,7 @@ cloud_run_sa = gcp.serviceaccount.Account(
     project=project,
     opts=ResourceOptions(
         provider=gcp_provider,
-        depends_on=enabled_apis  # Wait for APIs to be enabled
+        depends_on=enabled_apis
     )
 )
 
@@ -630,8 +635,6 @@ pulumi.export("cloud_run_url", cloud_run_service.uri)
 pulumi.export("docker_image_url", image_url)
 pulumi.export("service_account_email", cloud_run_sa.email)
 pulumi.export("artifact_registry_url", repo.name)
-
-
 
 
 # Deploy Cloud Run service
