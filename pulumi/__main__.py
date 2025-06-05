@@ -299,6 +299,171 @@
 
 
 
+# # Last worked
+# #------------------------------
+# import pulumi
+# import pulumi_gcp as gcp
+# import pulumi_docker as docker
+# from pulumi import ResourceOptions
+
+# # Configs
+# config = pulumi.Config()
+# project = config.require("project")
+# region = config.require("region")
+
+# # Create GCP provider
+# gcp_provider = gcp.Provider(
+#     "gcp-provider",
+#     project=project,
+#     region=region
+# )
+
+# # Enable required APIs
+# services = [
+#     "run.googleapis.com",
+#     "artifactregistry.googleapis.com",
+#     "cloudbuild.googleapis.com",
+#     "iam.googleapis.com",
+#     "serviceusage.googleapis.com",
+#     "cloudresourcemanager.googleapis.com"
+# ]
+
+# enabled_apis = []
+# for service in services:
+#     resource = gcp.projects.Service(
+#         f"enable-{service}",
+#         service=service,
+#         project=project,
+#         disable_on_destroy=False,
+#         opts=ResourceOptions(provider=gcp_provider)
+#     )
+#     enabled_apis.append(resource)
+
+# # FIXED: Artifact Registry with proper import configuration
+# repo = gcp.artifactregistry.Repository(
+#     "my-nodejs-app-repo",
+#     format="DOCKER",
+#     location=region,
+#     repository_id="my-nodejs-app-repo",
+#     project=project,
+#     opts=ResourceOptions(
+#         provider=gcp_provider,
+#         depends_on=enabled_apis,
+#         import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
+#     ),
+#     labels={}  # ✅ correct key to avoid import mismatch error
+# )
+
+# # Deployer service account email
+# deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+
+# # Grant roles to deployer service account
+# required_roles = [
+#     ("artifactregistry-writer", "roles/artifactregistry.writer"),
+#     ("run-admin", "roles/run.admin"),
+#     ("sa-user", "roles/iam.serviceAccountUser"),
+#     ("cloudbuild-editor", "roles/cloudbuild.builds.editor")
+# ]
+
+# for role_name, role in required_roles:
+#     gcp.projects.IAMMember(
+#         f"grant-{role_name}-to-deployer",
+#         project=project,
+#         role=role,
+#         member=f"serviceAccount:{deployer_sa_email}",
+#         opts=ResourceOptions(provider=gcp_provider)
+#     )
+
+
+# # FIX: Service account creation
+# cloud_run_sa = gcp.serviceaccount.Account(
+#     "cloud-run-sa",
+#     account_id="cloud-run-sa",  # Ensure this matches your naming
+#     display_name="Cloud Run Service Account",
+#     project=project,
+#     opts=ResourceOptions(
+#         provider=gcp_provider,
+#         # Add explicit dependency on enabled APIs
+#         depends_on=enabled_apis
+#     )
+# )
+
+# # FIXED: IAM bindings with explicit dependency on service account
+# cloud_run_roles = [
+#     ("run-invoker", "roles/run.invoker"),
+#     ("logging-log-writer", "roles/logging.logWriter"),
+#     ("metric-writer", "roles/monitoring.metricWriter")
+# ]
+
+
+# # FIX: IAM bindings with stronger dependency
+# for role_name, role in cloud_run_roles:
+#     gcp.projects.IAMMember(
+#         f"grant-{role_name}-to-cloudrun-sa",
+#         project=project,
+#         role=role,
+#         member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+#         opts=ResourceOptions(
+#             provider=gcp_provider,
+#             # Add explicit dependency on service account creation
+#             depends_on=[cloud_run_sa]
+#         )
+#     )
+
+
+# # Docker image configuration
+# image_url = pulumi.Output.concat(
+#     region, "-docker.pkg.dev/", project, "/my-nodejs-app-repo/nodejs-app"
+# )
+
+# app_image = docker.Image(
+#     "nodejs-app-image",
+#     image_name=image_url,
+#     build=docker.DockerBuildArgs(
+#         context="../",
+#         dockerfile="../Dockerfile",
+#         platform="linux/amd64",
+#         args={"NODE_ENV": "production"}
+#     ),
+#     registry=docker.RegistryArgs(
+#         server=f"{region}-docker.pkg.dev",
+#         username="_json_key",
+#         password=config.require_secret("gcpServiceAccountKey")  # 🔑 Must be set
+#     ),
+#     opts=ResourceOptions(provider=gcp_provider)
+# )
+
+# # Cloud Run service
+# cloud_run_service = gcp.cloudrunv2.Service(
+#     "nodejs-cloudrun-service",
+#     name="nodejs-cloudrun-service",
+#     location=region,
+#     project=project,
+#     template=gcp.cloudrunv2.ServiceTemplateArgs(
+#         containers=[gcp.cloudrunv2.ServiceTemplateContainerArgs(
+#             image=app_image.image_name,
+#             envs=[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+#                 name="PORT",
+#                 value="8080"
+#             )]
+#         )],
+#         service_account=cloud_run_sa.email
+#     ),
+#     traffics=[gcp.cloudrunv2.ServiceTrafficArgs(
+#         type="TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+#         percent=100
+#     )],
+#     opts=ResourceOptions(provider=gcp_provider)
+# )
+
+# # Outputs
+# pulumi.export("cloud_run_url", cloud_run_service.uri)
+# pulumi.export("docker_image_url", image_url)
+# pulumi.export("service_account_email", cloud_run_sa.email)
+# pulumi.export("artifact_registry_url", repo.name)
+
+
+
 import pulumi
 import pulumi_gcp as gcp
 import pulumi_docker as docker
@@ -337,7 +502,7 @@ for service in services:
     )
     enabled_apis.append(resource)
 
-# FIXED: Artifact Registry with proper import configuration
+# Artifact Registry
 repo = gcp.artifactregistry.Repository(
     "my-nodejs-app-repo",
     format="DOCKER",
@@ -349,7 +514,7 @@ repo = gcp.artifactregistry.Repository(
         depends_on=enabled_apis,
         import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
     ),
-    labels={}  # ✅ correct key to avoid import mismatch error
+    labels={}
 )
 
 # Deployer service account email
@@ -372,29 +537,39 @@ for role_name, role in required_roles:
         opts=ResourceOptions(provider=gcp_provider)
     )
 
+# ADDED: Repository-specific IAM binding
+gcp.artifactregistry.RepositoryIamMember(
+    "grant-artifact-writer",
+    repository=repo.id,
+    location=region,
+    project=project,
+    role="roles/artifactregistry.writer",
+    member=f"serviceAccount:{deployer_sa_email}",
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        depends_on=[repo]  # Ensure repository exists first
+    )
+)
 
-# FIX: Service account creation
+# Service account
 cloud_run_sa = gcp.serviceaccount.Account(
     "cloud-run-sa",
-    account_id="cloud-run-sa",  # Ensure this matches your naming
+    account_id="cloud-run-sa",
     display_name="Cloud Run Service Account",
     project=project,
     opts=ResourceOptions(
         provider=gcp_provider,
-        # Add explicit dependency on enabled APIs
-        depends_on=enabled_apis
+        depends_on=enabled_apis  # Wait for APIs to be enabled
     )
 )
 
-# FIXED: IAM bindings with explicit dependency on service account
+# IAM bindings
 cloud_run_roles = [
     ("run-invoker", "roles/run.invoker"),
     ("logging-log-writer", "roles/logging.logWriter"),
     ("metric-writer", "roles/monitoring.metricWriter")
 ]
 
-
-# FIX: IAM bindings with stronger dependency
 for role_name, role in cloud_run_roles:
     gcp.projects.IAMMember(
         f"grant-{role_name}-to-cloudrun-sa",
@@ -403,11 +578,9 @@ for role_name, role in cloud_run_roles:
         member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
         opts=ResourceOptions(
             provider=gcp_provider,
-            # Add explicit dependency on service account creation
-            depends_on=[cloud_run_sa]
+            depends_on=[cloud_run_sa]  # Essential dependency
         )
     )
-
 
 # Docker image configuration
 image_url = pulumi.Output.concat(
@@ -426,9 +599,12 @@ app_image = docker.Image(
     registry=docker.RegistryArgs(
         server=f"{region}-docker.pkg.dev",
         username="_json_key",
-        password=config.require_secret("gcpServiceAccountKey")  # 🔑 Must be set
+        password=config.require_secret("gcpServiceAccountKey")
     ),
-    opts=ResourceOptions(provider=gcp_provider)
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        depends_on=[repo]  # Wait for repository creation
+    )
 )
 
 # Cloud Run service
@@ -451,7 +627,10 @@ cloud_run_service = gcp.cloudrunv2.Service(
         type="TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
         percent=100
     )],
-    opts=ResourceOptions(provider=gcp_provider)
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        depends_on=[cloud_run_sa, app_image]  # Wait for dependencies
+    )
 )
 
 # Outputs
@@ -459,9 +638,6 @@ pulumi.export("cloud_run_url", cloud_run_service.uri)
 pulumi.export("docker_image_url", image_url)
 pulumi.export("service_account_email", cloud_run_sa.email)
 pulumi.export("artifact_registry_url", repo.name)
-
-
-
 
 
 
