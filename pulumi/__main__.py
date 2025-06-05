@@ -184,9 +184,11 @@ repo = gcp.artifactregistry.Repository(
     opts=ResourceOptions(
         provider=gcp_provider,
         depends_on=enabled_apis,
-        import_ = f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
-    )
+        import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
+    ),
+    pulumi_labels={}  # <--- this avoids mismatch
 )
+
 
 # Deployer service account email (used by GitHub Actions)
 deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
