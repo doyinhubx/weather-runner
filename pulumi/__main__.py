@@ -372,13 +372,18 @@ for role_name, role in required_roles:
         opts=ResourceOptions(provider=gcp_provider)
     )
 
-# FIXED: Service account without unnecessary dependencies
+
+# FIX: Service account creation
 cloud_run_sa = gcp.serviceaccount.Account(
     "cloud-run-sa",
-    account_id="cloud-run-sa",
+    account_id="cloud-run-sa",  # Ensure this matches your naming
     display_name="Cloud Run Service Account",
     project=project,
-    opts=ResourceOptions(provider=gcp_provider)
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        # Add explicit dependency on enabled APIs
+        depends_on=enabled_apis
+    )
 )
 
 # FIXED: IAM bindings with explicit dependency on service account
@@ -388,6 +393,8 @@ cloud_run_roles = [
     ("metric-writer", "roles/monitoring.metricWriter")
 ]
 
+
+# FIX: IAM bindings with stronger dependency
 for role_name, role in cloud_run_roles:
     gcp.projects.IAMMember(
         f"grant-{role_name}-to-cloudrun-sa",
@@ -396,9 +403,11 @@ for role_name, role in cloud_run_roles:
         member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
         opts=ResourceOptions(
             provider=gcp_provider,
-            depends_on=[cloud_run_sa]  # 🧠 this is essential
+            # Add explicit dependency on service account creation
+            depends_on=[cloud_run_sa]
         )
     )
+
 
 # Docker image configuration
 image_url = pulumi.Output.concat(
