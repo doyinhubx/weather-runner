@@ -463,7 +463,7 @@ jobs:
 
       - name: Configure Docker authentication
         run: |
-        echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+          echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
 
       - name: Configure Docker to use Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev
