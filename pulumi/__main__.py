@@ -491,7 +491,8 @@ services = [
     "cloudbuild.googleapis.com",
     "iam.googleapis.com",
     "serviceusage.googleapis.com",
-    "cloudresourcemanager.googleapis.com"
+    "cloudresourcemanager.googleapis.com",
+    "compute.googleapis.com"
 ]
 
 enabled_apis = []
@@ -505,27 +506,12 @@ for service in services:
     )
     enabled_apis.append(resource)
 
-# Artifact Registry
-repo = gcp.artifactregistry.Repository(
-    "my-nodejs-app-repo",
-    format="DOCKER",
-    location=region,
-    repository_id="my-nodejs-app-repo",
-    project=project,
-    opts=ResourceOptions(
-        provider=gcp_provider,
-        depends_on=enabled_apis
-        #import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
-    ),
-    labels={}
-)
-
 # Deployer service account email
 deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
-# Grant roles to deployer service account
+# Grant roles to deployer service account - MUST BE BEFORE REPOSITORY CREATION
 required_roles = [
-    ("artifactregistry-writer", "roles/artifactregistry.writer"),
+    ("artifactregistry-admin", "roles/artifactregistry.admin"),  # Elevated permissions
     ("run-admin", "roles/run.admin"),
     ("sa-user", "roles/iam.serviceAccountUser"),
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor")
@@ -537,24 +523,27 @@ for role_name, role in required_roles:
         project=project,
         role=role,
         member=f"serviceAccount:{deployer_sa_email}",
-        opts=ResourceOptions(provider=gcp_provider)
+        opts=ResourceOptions(
+            provider=gcp_provider,
+            depends_on=enabled_apis  # Wait for APIs to be enabled
+        )
     )
 
-# ADDED: Repository-specific IAM binding
-gcp.artifactregistry.RepositoryIamMember(
-    "grant-artifact-writer",
-    repository=repo.id,
+# Artifact Registry - DEPENDS ON PERMISSIONS BEING GRANTED
+repo = gcp.artifactregistry.Repository(
+    "my-nodejs-app-repo",
+    format="DOCKER",
     location=region,
+    repository_id="my-nodejs-app-repo",
     project=project,
-    role="roles/artifactregistry.writer",
-    member=f"serviceAccount:{deployer_sa_email}",
     opts=ResourceOptions(
         provider=gcp_provider,
-        depends_on=[repo]  # Ensure repository exists first
-    )
+        depends_on=enabled_apis  # Wait for APIs to be enabled
+    ),
+    labels={}
 )
 
-# Service account
+# Service account for Cloud Run
 cloud_run_sa = gcp.serviceaccount.Account(
     "cloud-run-sa",
     account_id="cloud-run-sa",
@@ -566,16 +555,7 @@ cloud_run_sa = gcp.serviceaccount.Account(
     )
 )
 
-# Add this after the service account creation
-gcp.projects.IAMMember(
-    "grant-artifactregistry-admin-to-pulumi-sa",
-    project=project,
-    role="roles/artifactregistry.admin",
-    member=f"serviceAccount:{deployer_sa_email}",
-    opts=ResourceOptions(provider=gcp_provider)
-)
-
-# IAM bindings
+# IAM bindings for Cloud Run SA
 cloud_run_roles = [
     ("run-invoker", "roles/run.invoker"),
     ("logging-log-writer", "roles/logging.logWriter"),
@@ -611,7 +591,7 @@ app_image = docker.Image(
     registry=docker.RegistryArgs(
         server=f"{region}-docker.pkg.dev",
         username="_json_key",
-        password=config.require_secret("gcpServiceAccountKey")
+        password=gcp_service_account_key
     ),
     opts=ResourceOptions(
         provider=gcp_provider,
