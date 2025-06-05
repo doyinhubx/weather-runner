@@ -262,61 +262,33 @@ app_image = docker.Image(
     )
 )
 
-# # Deploy Cloud Run service
-# cloud_run_service = gcp.cloudrunv2.Service(
-#     "nodejs-cloudrun-service",
-#     name="nodejs-cloudrun-service",
-#     location=region,
-#     project=project,
-#     template=gcp.cloudrunv2.ServiceTemplateArgs(
-#         containers=[
-#             gcp.cloudrunv2.ServiceTemplateContainerArgs(
-#                 image=app_image.image_name,
-#                 ports=[gcp.cloudrunv2.ServiceTemplateContainerPortArgs(container_port=8080)],
-#                 envs=[
-#                     gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-#                         name="NODE_ENV", value="production"
-#                     )
-#                 ]
-#             )
-#         ],
-#         service_account=cloud_run_sa.email
-#     ),
-#     traffics=[
-#         gcp.cloudrunv2.ServiceTrafficArgs(
-#             type="TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
-#             percent=100
-#         )
-#     ],
-#     opts=ResourceOptions(
-#         provider=gcp_provider,
-#         depends_on=[app_image, cloud_run_sa]
-#     )
-# )
-
+ServiceTemplateContainerPortArgs
 # Deploy Cloud Run service
 cloud_run_service = gcp.cloudrunv2.Service(
     "nodejs-cloudrun-service",
     name="nodejs-cloudrun-service",
     location=region,
     project=project,
-    template={
-        "containers": [{
-            "image": app_image.image_name,
-            "ports": [{
-                "container_port": 8080
-            }],
-            "envs": [{
-                "name": "NODE_ENV",
-                "value": "production"
-            }]
-        }],
-        "service_account": cloud_run_sa.email
-    },
-    traffic=[{
-        "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
-        "percent": 100
-    }],
+    template=gcp.cloudrunv2.ServiceTemplateArgs(
+        containers=[
+            gcp.cloudrunv2.ServiceTemplateContainerArgs(
+                image=app_image.image_name,
+                ports=[gcp.cloudrunv2.ServiceTemplateContainerPortArgs(container_port=8080)],
+                envs=[
+                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+                        name="NODE_ENV", value="production"
+                    )
+                ]
+            )
+        ],
+        service_account=cloud_run_sa.email
+    ),
+    traffics=[
+        gcp.cloudrunv2.ServiceTrafficArgs(
+            type="TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+            percent=100
+        )
+    ],
     opts=ResourceOptions(
         provider=gcp_provider,
         depends_on=[app_image, cloud_run_sa]
