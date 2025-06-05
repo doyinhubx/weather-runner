@@ -396,7 +396,7 @@ for role_name, role in cloud_run_roles:
         member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
         opts=ResourceOptions(
             provider=gcp_provider,
-            depends_on=[cloud_run_sa]  # Critical dependency
+            depends_on=[cloud_run_sa]  # 🧠 this is essential
         )
     )
 
@@ -416,7 +416,8 @@ app_image = docker.Image(
     ),
     registry=docker.RegistryArgs(
         server=f"{region}-docker.pkg.dev",
-        username="_json_key"
+        username="_json_key",
+        password=config.require_secret("gcpServiceAccountKey")  # 🔑 Must be set
     ),
     opts=ResourceOptions(provider=gcp_provider)
 )
