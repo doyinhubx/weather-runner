@@ -186,7 +186,7 @@ repo = gcp.artifactregistry.Repository(
         depends_on=enabled_apis,
         import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
     ),
-    pulumi_labels={}  # <--- this avoids mismatch
+    labels={}  # ✅ correct key to avoid import mismatch error
 )
 
 
