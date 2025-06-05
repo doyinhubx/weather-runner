@@ -479,7 +479,9 @@ gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
 gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
-    region=region
+    region=region,
+    # Add this to ignore the Compute Engine API warning
+    opts=ResourceOptions(ignore_changes=["project"])
 )
 
 # Enable required APIs
@@ -512,8 +514,8 @@ repo = gcp.artifactregistry.Repository(
     project=project,
     opts=ResourceOptions(
         provider=gcp_provider,
-        depends_on=enabled_apis,
-        import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
+        depends_on=enabled_apis
+        #import_=f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
     ),
     labels={}
 )
@@ -562,6 +564,15 @@ cloud_run_sa = gcp.serviceaccount.Account(
         provider=gcp_provider,
         depends_on=enabled_apis  # Wait for APIs to be enabled
     )
+)
+
+# Add this after the service account creation
+gcp.projects.IAMMember(
+    "grant-artifactregistry-admin-to-pulumi-sa",
+    project=project,
+    role="roles/artifactregistry.admin",
+    member=f"serviceAccount:{deployer_sa_email}",
+    opts=ResourceOptions(provider=gcp_provider)
 )
 
 # IAM bindings
