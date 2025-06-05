@@ -473,6 +473,7 @@ from pulumi import ResourceOptions
 config = pulumi.Config()
 project = config.require("project")
 region = config.require("region")
+gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
 
 # Create GCP provider
 gcp_provider = gcp.Provider(
