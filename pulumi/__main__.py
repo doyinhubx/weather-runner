@@ -183,7 +183,8 @@ repo = gcp.artifactregistry.Repository(
     project=project,
     opts=ResourceOptions(
         provider=gcp_provider,
-        depends_on=enabled_apis
+        depends_on=enabled_apis,
+        import_ = f"projects/{project}/locations/{region}/repositories/my-nodejs-app-repo"
     )
 )
 
@@ -263,6 +264,39 @@ app_image = docker.Image(
 )
 
 
+# Deploy Cloud Run service - SIMPLIFIED AND FIXED
+cloud_run_service = gcp.cloudrunv2.Service(
+    "nodejs-cloudrun-service",
+    name="nodejs-cloudrun-service",
+    location=region,
+    project=project,
+    # Use JSON-compatible configuration
+    template=gcp.cloudrunv2.ServiceTemplateArgs(
+        containers=[gcp.cloudrunv2.ServiceTemplateContainerArgs(
+            image=app_image.image_name,
+            envs=[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+                name="PORT",
+                value="8080"
+            )]
+        )],
+        service_account=cloud_run_sa.email
+    ),
+    traffics=[gcp.cloudrunv2.ServiceTrafficArgs(
+        type="TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+        percent=100
+    )],
+    opts=ResourceOptions(provider=gcp_provider)
+)
+
+
+# Outputs
+pulumi.export("cloud_run_url", cloud_run_service.uri)
+pulumi.export("docker_image_url", image_url)
+pulumi.export("service_account_email", cloud_run_sa.email)
+pulumi.export("artifact_registry_url", repo.name)
+
+
+
 # Deploy Cloud Run service
 # cloud_run_service = gcp.cloudrunv2.Service(
 #     "nodejs-cloudrun-service",
@@ -298,36 +332,3 @@ app_image = docker.Image(
 #         depends_on=[app_image, cloud_run_sa]
 #     )
 # )
-
-
-# Deploy Cloud Run service - SIMPLIFIED AND FIXED
-cloud_run_service = gcp.cloudrunv2.Service(
-    "nodejs-cloudrun-service",
-    name="nodejs-cloudrun-service",
-    location=region,
-    project=project,
-    # Use JSON-compatible configuration
-    template=gcp.cloudrunv2.ServiceTemplateArgs(
-        containers=[gcp.cloudrunv2.ServiceTemplateContainerArgs(
-            image=app_image.image_name,
-            envs=[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                name="PORT",
-                value="8080"
-            )]
-        )],
-        service_account=cloud_run_sa.email
-    ),
-    traffics=[gcp.cloudrunv2.ServiceTrafficArgs(
-        type="TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
-        percent=100
-    )],
-    opts=ResourceOptions(provider=gcp_provider)
-)
-
-
-
-# Outputs
-pulumi.export("cloud_run_url", cloud_run_service.uri)
-pulumi.export("docker_image_url", image_url)
-pulumi.export("service_account_email", cloud_run_sa.email)
-pulumi.export("artifact_registry_url", repo.name)
