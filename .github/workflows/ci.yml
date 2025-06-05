@@ -375,9 +375,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Enable Compute Engine API
-        run: |
-          gcloud services enable compute.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
+      # - name: Enable Compute Engine API
+      #   run: |
+      #     gcloud services enable compute.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
         
       - name: Set up Pulumi
         uses: pulumi/actions@v4
