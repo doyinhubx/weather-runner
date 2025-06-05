@@ -423,10 +423,9 @@ jobs:
       - name: Set Pulumi config
         working-directory: ./pulumi
         run: |
-          pulumi config set gcp:project ${{ secrets.GCP_PROJECT_ID }}
-          pulumi config set gcp:region ${{ secrets.GCP_REGION }}
-          pulumi config set pulumi-gcp-crun:project ${{ secrets.GCP_PROJECT_ID }}
-          pulumi config set pulumi-gcp-crun:region ${{ secrets.GCP_REGION }}
+          source venv/bin/activate
+          pulumi config set project ${{ secrets.GCP_PROJECT_ID }}
+          pulumi config set region ${{ secrets.GCP_REGION }}
           pulumi config set gcpServiceAccountKey --secret "${{ secrets.GCP_PULUMI_DEV_SA_KEY }}"
 
       - name: Deploy infra with Pulumi
@@ -473,18 +472,15 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker authentication
+      - name: Authenticate Docker to Artifact Registry
         run: |
           echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
-
-      - name: Configure Docker to use Artifact Registry
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
 
       - name: Build Docker image
         run: |
           docker build \
-            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
-            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
+            -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+            -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
             .
 
       - name: Push Docker images
