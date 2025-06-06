@@ -407,10 +407,11 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # - name: Verify service account
-      #   run: |
-      #     echo "Service account email should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
-      #     echo ${{ secrets.GCP_PULUMI_DEV_SA_KEY }} | jq -r .client_email
+     # - name: Verify service account
+     #    run: |
+     #      echo "Service account email:"
+     #      echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
+     #      echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -453,8 +454,8 @@ jobs:
         id: deploy
         run: |
           gcloud run deploy nodejs-cloudrun-service \
-            --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
-            --region us-central1 \
+            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+            --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated \
             --update-env-vars NODE_ENV=dev \

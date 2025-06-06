@@ -493,7 +493,8 @@ required_roles = [
     ("run-admin", "roles/run.admin"),
     ("sa-user", "roles/iam.serviceAccountUser"),
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
-    ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin")
+    ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin"),
+    ("storage-object-admin", "roles/storage.objectAdmin")
 ]
 
 # Grant roles to deployer service account - MUST BE FIRST
@@ -559,6 +560,7 @@ repo_iam = gcp.artifactregistry.RepositoryIamMember(
         depends_on=[repo]  # Must exist before applying IAM
     )
 )
+
 
 # Service account for Cloud Run - DEPENDS ON ENABLED APIS
 cloud_run_sa = gcp.serviceaccount.Account(
