@@ -562,6 +562,7 @@ jobs:
         with:
           pulumi-version: 3.x
 
+      # Use admin account for initial deployment
       - name: Authenticate as admin
         uses: google-github-actions/auth@v2
         with:
@@ -614,20 +615,19 @@ jobs:
 
       - name: Deploy infra with Pulumi
         working-directory: ./pulumi
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GCP_ADMIN_SA_KEY }}  # Fallback for credentials
         run: |
           source venv/bin/activate
           pulumi up --yes -s dev
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+      # Switch to regular service account after initial deployment
       - name: Update config to use deployer account
         working-directory: ./pulumi
         run: |
           source venv/bin/activate
           pulumi config set gcpServiceAccountKey --secret "${{ secrets.GCP_PULUMI_DEV_SA_KEY }}"
-        
+ 
   dev-deploy:
     name: Deploy to Google Cloud Run (Dev)
     needs: [ci, infra-deploy]
