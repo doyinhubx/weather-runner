@@ -609,7 +609,7 @@ jobs:
           
           # Properly format JSON key
           echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | jq -c . > sa-key.json
-          pulumi config set gcpServiceAccountKey --secret < sa-key.json
+          pulumi config set gcpServiceAccountKey --secret "$(cat sa-key.json)"
           rm sa-key.json
 
       - name: Deploy infra with Pulumi
