@@ -311,240 +311,9 @@ jobs:
   #           Commit: `${{ github.sha }}`
   #         SLACK_COLOR: danger
 
-# # Infra Deploy for Node backend
-# #-----------------------------------------------------------------
-#   infra-deploy:
-#     name: Provision GCP Infra via Pulumi (Dev)
-#     needs: ci
-#     runs-on: ubuntu-latest
-#     if: github.ref == 'refs/heads/dev'
-#     environment:
-#       name: dev
 
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v3
-
-#       - name: Set up Pulumi
-#         uses: pulumi/actions@v4
-#         with:
-#           pulumi-version: 3.x
-
-#       - name: Authenticate to Google Cloud
-#         uses: google-github-actions/auth@v2
-#         with:
-#           credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
-#           project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-#       - name: Set up Cloud SDK
-#         uses: google-github-actions/setup-gcloud@v2
-
-#       - name: Install Node.js for Pulumi (if using Node backend)
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: '20.x'
-
-#       - name: Install Pulumi dependencies
-#         run: npm ci
-#         working-directory: ./pulumi
-
-#       - name: Run Pulumi preview
-#         run: pulumi preview -s dev
-#         working-directory: ./pulumi
-#         env:
-#           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-
-#       - name: Deploy infra with Pulumi
-#         run: pulumi up --yes -s dev
-#         working-directory: ./pulumi
-#         env:
-#           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-
-
-# # Infra Deploy for Python backend
-# #-----------------------------------------------------------------
-  # infra-deploy:
-  #   name: Provision GCP Infra via Pulumi (Dev)
-  #   needs: ci
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/dev'
-  #   environment:
-  #     name: dev
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
-
-  #     # - name: Enable Compute Engine API
-  #     #   run: |
-  #     #     gcloud services enable compute.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
-        
-  #     - name: Set up Pulumi
-  #       uses: pulumi/actions@v4
-  #       with:
-  #         pulumi-version: 3.x
-
-  #     - name: Authenticate to Google Cloud
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
-  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-  #     - name: Set up Cloud SDK
-  #       uses: google-github-actions/setup-gcloud@v2
-
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.11'
-
-  #     - name: Set up virtual environment and install Python dependencies
-  #       working-directory: ./pulumi
-  #       run: |
-  #         python -m venv venv
-  #         source venv/bin/activate
-  #         pip install -r requirements.txt
-
-  #     # NEW: Initialize or select Pulumi stack
-  #     - name: Set up Pulumi stack
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi login
-  #         pulumi stack select dev || pulumi stack init dev --non-interactive
-  #       env:
-  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-
-  #     - name: Run Pulumi preview
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi preview -s dev
-  #       env:
-  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-     
-  #     # Add this step BEFORE pulumi up
-  #     - name: Set Pulumi config
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-          
-  #         # Write service account key to temp file
-  #         echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' > service-account-key.json
-          
-  #         # Set config values
-  #         pulumi config set project ${{ secrets.GCP_PROJECT_ID }}
-  #         pulumi config set region ${{ secrets.GCP_REGION }}
-          
-  #         # Set secret from file content
-  #         pulumi config set gcpServiceAccountKey --secret < service-account-key.json
-          
-  #         # Securely remove temp file
-  #         shred -u service-account-key.json
-
-  #     - name: Deploy infra with Pulumi
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi up --yes -s dev
-  #       env:
-  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-
-  # infra-deploy:
-  #   name: Provision GCP Infra via Pulumi (Dev)
-  #   needs: ci
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/dev'
-  #   environment:
-  #     name: dev
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
-
-  #     - name: Set up Pulumi
-  #       uses: pulumi/actions@v4
-  #       with:
-  #         pulumi-version: 3.x
-
-  #     # Use admin account for initial deployment
-  #     - name: Authenticate as admin
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         credentials_json: '${{ secrets.GCP_ADMIN_SA_KEY }}'
-  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-  #     - name: Authenticate to Google Cloud
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
-  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-  #     - name: Set up Cloud SDK
-  #       uses: google-github-actions/setup-gcloud@v2
-
-  #     - name: Authenticate for API enablement
-  #       run: |
-  #         echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' > sa-key.json
-  #         gcloud auth activate-service-account --key-file=sa-key.json
-  #         gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
-  #         rm sa-key.json
-          
-  #     # - name: Enable required APIs manually
-  #     #   run: |
-  #     #     gcloud services enable serviceusage.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
-  #     #     gcloud services enable cloudresourcemanager.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
-  #     #     gcloud services enable iam.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
-  #     #     gcloud services enable compute.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
-
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.11'
-
-  #     - name: Set up virtual environment and install Python dependencies
-  #       working-directory: ./pulumi
-  #       run: |
-  #         python -m venv venv
-  #         source venv/bin/activate
-  #         pip install -r requirements.txt
-
-  #     - name: Set up Pulumi stack
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi login
-  #         pulumi stack select dev || pulumi stack init dev --non-interactive
-  #       env:
-  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-
-  #     - name: Run Pulumi preview
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi preview -s dev
-  #       env:
-  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-       
-  #     - name: Set Pulumi config
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi config set project ${{ secrets.GCP_PROJECT_ID }}
-  #         pulumi config set region ${{ secrets.GCP_REGION }}
-  #         echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' > sa-key.json
-  #         pulumi config set gcpServiceAccountKey --secret < sa-key.json
-  #         rm sa-key.json
-
-  #     - name: Deploy infra with Pulumi
-  #       working-directory: ./pulumi
-  #       run: |
-  #         source venv/bin/activate
-  #         pulumi up --yes -s dev
-  #       env:
-  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          
-
+# # Pulumi Infra Deploy for Node backend
+# #-----------------------------------------------------------------        
   infra-deploy:
     name: Provision GCP Infra via Pulumi (Dev)
     needs: ci
@@ -600,50 +369,13 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
        
-
-      # - name: Validate credentials
-      #   run: |
-      #     echo "$GCP_ADMIN_SA_KEY" | jq . > /dev/null
-      #   env:
-      #     GCP_ADMIN_SA_KEY: ${{ secrets.GCP_ADMIN_SA_KEY }}
-
-
-      # - name: Set Pulumi config
-      #   working-directory: ./pulumi
-      #   run: |
-      #     source venv/bin/activate
-      #     pulumi config set project ${{ secrets.GCP_PROJECT_ID }}
-      #     pulumi config set region ${{ secrets.GCP_REGION }}
-          
-      #     # Properly format JSON key
-      #     echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | jq -c . > sa-key.json
-      #     pulumi config set gcpServiceAccountKey --secret "$(cat sa-key.json)"
-      #     rm sa-key.json
-
-
       - name: Set Pulumi config
         working-directory: ./pulumi
         run: |
           source venv/bin/activate
-          
-          # Write properly formatted JSON key
-          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | jq -c . > sa-key.json
-          
-          # Validate JSON format
-          if ! jq empty sa-key.json; then
-            echo "Invalid JSON in service account key"
-            exit 1
-          fi
-          
-          # Set config values
           pulumi config set project ${{ secrets.GCP_PROJECT_ID }}
           pulumi config set region ${{ secrets.GCP_REGION }}
-          
-          # Set secret from file
-          pulumi config set gcpServiceAccountKey --secret < sa-key.json
-          
-          # Cleanup
-          rm sa-key.json
+          pulumi config set gcpServiceAccountKey --secret "${{ secrets.GCP_ADMIN_SA_KEY }}"
 
       - name: Deploy infra with Pulumi
         working-directory: ./pulumi
@@ -659,7 +391,7 @@ jobs:
         run: |
           source venv/bin/activate
           pulumi config set gcpServiceAccountKey --secret "${{ secrets.GCP_PULUMI_DEV_SA_KEY }}"
- 
+   
   dev-deploy:
     name: Deploy to Google Cloud Run (Dev)
     needs: [ci, infra-deploy]
@@ -754,6 +486,8 @@ jobs:
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`
           SLACK_COLOR: danger
+
+
   docker:
     name: Build & Push Docker Image
     needs: production-deploy

@@ -472,15 +472,13 @@ from pulumi import ResourceOptions
 config = pulumi.Config()
 project = config.require("project")
 region = config.require("region")
-#gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
+gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
 
-
-# Create GCP provider with explicit credentials
+# Create GCP provider - SIMPLIFIED
 gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region,
-    #credentials=gcp_service_account_key.apply(lambda key: key.replace('\\n', '\n')),  # Fix newline characters
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
@@ -596,7 +594,7 @@ app_image = docker.Image(
     registry=docker.RegistryArgs(
         server=f"{region}-docker.pkg.dev",
         username="_json_key",
-        password=gcp_service_account_key
+        password=gcp_service_account_key  # Use directly
     ),
     opts=ResourceOptions(
         provider=gcp_provider,
