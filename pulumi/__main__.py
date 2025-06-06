@@ -547,6 +547,19 @@ repo = gcp.artifactregistry.Repository(
     labels={}
 )
 
+# Add explicit repository IAM binding for deployer account
+repo_iam = gcp.artifactregistry.RepositoryIamMember(
+    "deployer-repo-iam",
+    repository=repo.name,
+    location=region,
+    role="roles/artifactregistry.writer",
+    member=f"serviceAccount:{deployer_sa_email}",
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        depends_on=[repo]  # Must exist before applying IAM
+    )
+)
+
 # Service account for Cloud Run - DEPENDS ON ENABLED APIS
 cloud_run_sa = gcp.serviceaccount.Account(
     "cloud-run-sa",
@@ -599,7 +612,18 @@ app_image = docker.Image(
     ),
     opts=ResourceOptions(
         provider=gcp_provider,
-        depends_on=[repo]  # Wait for repository creation
+        depends_on=[repo, repo_iam]  # Wait for repository creation and IAM binding
+    )
+)
+
+
+
+app_image = docker.Image(
+    "nodejs-app-image",
+    # ... existing config ...
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        depends_on=[repo, repo_iam]  # Wait for IAM binding
     )
 )
 
