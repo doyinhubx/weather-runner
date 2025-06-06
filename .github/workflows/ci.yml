@@ -602,12 +602,12 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
        
       - name: Set Pulumi config
-        working-directory: ./pulumi
         run: |
-          source venv/bin/activate
-          pulumi config set project ${{ secrets.GCP_PROJECT_ID }}
-          pulumi config set region ${{ secrets.GCP_REGION }}
-          pulumi config set gcpServiceAccountKey --secret '${{ secrets.GCP_ADMIN_SA_KEY }}'
+          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' > gcp-key.json
+          pulumi config set gcp:credentials --secret "$(cat gcp-key.json)"
+          pulumi config set gcp:project --secret ${{ secrets.GCP_PROJECT_ID }}
+          pulumi config set gcp:region --secret ${{ secrets.GCP_REGION }}
+        working-directory: ./pulumi
 
       - name: Deploy infra with Pulumi
         working-directory: ./pulumi

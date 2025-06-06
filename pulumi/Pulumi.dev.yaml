@@ -6,4 +6,4 @@ config:
   pulumi-gcp-crun:region: us-central1
   pulumi-gcp-crun:zone: us-central1-a
   pulumi-gcp-crun:gcpServiceAccountKey:
-    secure: AAABAPWPrLR9jGXN/PXz0oTRaNoZTlSI/8Fh4oMdQQJP
+    secure: AAABAK6SyGeGb2Gyc/IiIcXCeGYqGwxIDQNwDS8FpPch
