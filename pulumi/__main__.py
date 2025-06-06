@@ -472,7 +472,7 @@ from pulumi import ResourceOptions
 config = pulumi.Config()
 project = config.require("project")
 region = config.require("region")
-gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
+#gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
 
 
 # Create GCP provider with explicit credentials
@@ -480,7 +480,7 @@ gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region,
-    credentials=gcp_service_account_key.apply(lambda key: key.replace('\\n', '\n')),  # Fix newline characters
+    #credentials=gcp_service_account_key.apply(lambda key: key.replace('\\n', '\n')),  # Fix newline characters
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
