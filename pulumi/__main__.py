@@ -463,7 +463,6 @@
 # pulumi.export("artifact_registry_url", repo.name)
 
 
-
 import pulumi
 import pulumi_gcp as gcp
 import pulumi_docker as docker
@@ -481,7 +480,7 @@ gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region,
-    credentials=gcp_service_account_key,  # 🔑 THIS IS CRITICAL
+    credentials=gcp_service_account_key.apply(lambda key: key.replace('\\n', '\n')),  # Fix newline characters
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
