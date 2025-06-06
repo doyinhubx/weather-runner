@@ -606,6 +606,7 @@ jobs:
           SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region us-central1 --format 'value(status.url)')
           echo "Deployed to: $SERVICE_URL"
 
+      # Slack Notifications
       - name: Notify Slack of Dev Deploy
         if: success()
         uses: rtCamp/action-slack-notify@v2
