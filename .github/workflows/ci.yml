@@ -407,10 +407,10 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Verify service account
-        run: |
-          echo "Service account email should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
-          echo ${{ secrets.GCP_PULUMI_DEV_SA_KEY }} | jq -r .client_email
+      # - name: Verify service account
+      #   run: |
+      #     echo "Service account email should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+      #     echo ${{ secrets.GCP_PULUMI_DEV_SA_KEY }} | jq -r .client_email
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
