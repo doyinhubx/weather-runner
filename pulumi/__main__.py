@@ -475,12 +475,13 @@ project = config.require("project")
 region = config.require("region")
 gcp_service_account_key = config.require_secret("gcpServiceAccountKey")
 
-# Create GCP provider
+
+# Create GCP provider with explicit credentials
 gcp_provider = gcp.Provider(
     "gcp-provider",
     project=project,
     region=region,
-    # Suppress warnings about project changes
+    credentials=gcp_service_account_key,  # 🔑 THIS IS CRITICAL
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
