@@ -616,17 +616,6 @@ app_image = docker.Image(
     )
 )
 
-
-
-app_image = docker.Image(
-    "nodejs-app-image",
-    # ... existing config ...
-    opts=ResourceOptions(
-        provider=gcp_provider,
-        depends_on=[repo, repo_iam]  # Wait for IAM binding
-    )
-)
-
 # Cloud Run service
 cloud_run_service = gcp.cloudrunv2.Service(
     "nodejs-cloudrun-service",
