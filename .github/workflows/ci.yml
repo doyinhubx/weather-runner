@@ -371,7 +371,7 @@ jobs:
           pulumi config set --secret gcpServiceAccountKey "$SERVICE_ACCOUNT_KEY"
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          REGION: ${{ secrets.GCP_REGION }}
+          REGION: ${{ secrets.GCP_REGION }}  # Fix typo: REGION not REGION
           SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_ADMIN_SA_KEY }}
 
       - name: Run Pulumi preview

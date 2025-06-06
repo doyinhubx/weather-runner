@@ -487,8 +487,9 @@ deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount
 
 # Required IAM roles for deployer service account
 required_roles = [
-    ("serviceusage-admin", "roles/serviceusage.serviceUsageAdmin"),  # Essential for API enablement
+    ("serviceusage-admin", "roles/serviceusage.serviceUsageAdmin"),
     ("artifactregistry-admin", "roles/artifactregistry.admin"),
+    ("artifactregistry-writer", "roles/artifactregistry.writer"),  # ADD THIS
     ("run-admin", "roles/run.admin"),
     ("sa-user", "roles/iam.serviceAccountUser"),
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
