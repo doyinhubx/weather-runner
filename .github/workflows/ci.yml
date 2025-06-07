@@ -444,18 +444,18 @@ jobs:
       #     gcloud artifacts repositories describe my-nodejs-app-repo \
       #       --location=${{ secrets.GCP_REGION }}
 
-      - name: Verify upload permission
-        run: |
-          gcloud artifacts repositories list \
-            --location=${{ secrets.GCP_REGION }} \
-            --format="value(name)" | grep my-nodejs-app-repo
+      # - name: Verify upload permission
+      #   run: |
+      #     gcloud artifacts repositories list \
+      #       --location=${{ secrets.GCP_REGION }} \
+      #       --format="value(name)" | grep my-nodejs-app-repo
           
-          # Test permission by creating a dummy file
-          echo "test" > test.txt
-          gcloud artifacts files upload test.txt \
-            --repository=my-nodejs-app-repo \
-            --location=${{ secrets.GCP_REGION }} \
-            --destination=test.txt
+      #     # Test permission by creating a dummy file
+      #     echo "test" > test.txt
+      #     gcloud artifacts files upload test.txt \
+      #       --repository=my-nodejs-app-repo \
+      #       --location=${{ secrets.GCP_REGION }} \
+      #       --destination=test.txt
 
 
       - name: Authenticate Docker to Artifact Registry
