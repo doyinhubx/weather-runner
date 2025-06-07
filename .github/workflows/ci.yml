@@ -419,9 +419,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      # Grant explicit storage access to admin account
+      - name: Grant bucket access
+        run: |
+          BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
+          gsutil iam ch serviceAccount:$GOOGLE_GHA_CREDS_PATH:roles/storage.admin gs://$BUCKET_NAME
+
       - name: Build and push Docker images with Cloud Build
         run: |
-          # Use a consistent bucket name pattern
           BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
           
           gcloud builds submit \
@@ -431,17 +436,18 @@ jobs:
             --substitutions=COMMIT_SHA=${{ github.sha }},_REGION=${{ secrets.GCP_REGION }} \
             --region=${{ secrets.GCP_REGION }}
 
-            - name: Deploy to Cloud Run
-              id: deploy
-              run: |
-                gcloud run deploy nodejs-cloudrun-service \
-                  --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
-                  --region ${{ secrets.GCP_REGION }} \
-                  --platform managed \
-                  --allow-unauthenticated \
-                  --update-env-vars NODE_ENV=dev \
-                  --timeout 5m \
-                  --port 8080
+      # Fix indentation for these steps
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          gcloud run deploy nodejs-cloudrun-service \
+            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --update-env-vars NODE_ENV=dev \
+            --timeout 5m \
+            --port 8080
 
       - name: Output Cloud Run URL
         run: |
@@ -451,6 +457,7 @@ jobs:
           echo "Deployed to: $SERVICE_URL"
           echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
+          
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
   #   needs: [ci, infra-deploy]

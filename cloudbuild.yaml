@@ -31,8 +31,7 @@ steps:
     ]
 
 options:
-  logging: CLOUD_LOGGING_ONLY
-  logging: GCS_ONLY
+  logging: GCS_ONLY  # Only one logging option
   env:
     - 'CLOUDSDK_CORE_PROJECT=${PROJECT_ID}'
 
