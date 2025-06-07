@@ -485,6 +485,13 @@ gcp_provider = gcp.Provider(
 # Add at the top of your Pulumi code
 from pulumi_gcp import storage
 
+
+# Add this import at the top
+from pulumi_gcp import organizations
+
+# Get project details
+project_details = organizations.get_project(project_id=project)
+
 # Create a dedicated bucket for Cloud Build
 cloudbuild_bucket = storage.Bucket(
     "cloudbuild-bucket",
@@ -499,12 +506,12 @@ storage_bucket_iam = storage.BucketIAMMember(
     "cloudbuild-bucket-iam",
     bucket=cloudbuild_bucket.name,
     role="roles/storage.admin",
-    member=f"serviceAccount:{project.number}@cloudbuild.gserviceaccount.com",
+    member=f"serviceAccount:{project_details.number}@cloudbuild.gserviceaccount.com",
     opts=ResourceOptions(provider=gcp_provider)
 )
 
 # Grant admin account access to the bucket
-admin_sa_email = "your-admin-account@your-project.iam.gserviceaccount.com"  # REPLACE WITH YOUR ADMIN EMAIL
+admin_sa_email = " admin-account-sa@weather-app2-460914.gserviceaccount.com"  # REPLACE WITH YOUR ADMIN EMAIL
 admin_bucket_iam = storage.BucketIAMMember(
     "admin-bucket-iam",
     bucket=cloudbuild_bucket.name,
@@ -512,6 +519,7 @@ admin_bucket_iam = storage.BucketIAMMember(
     member=f"serviceAccount:{admin_sa_email}",
     opts=ResourceOptions(provider=gcp_provider)
 )
+
 
 
 # Add at the top of your Pulumi code
@@ -702,6 +710,8 @@ pulumi.export("cloud_run_url", cloud_run_service.uri)
 pulumi.export("docker_image_url", image_url)
 pulumi.export("service_account_email", cloud_run_sa.email)
 pulumi.export("artifact_registry_url", repo.name)
+# Output bucket name for reference
+pulumi.export("cloudbuild_bucket_name", cloudbuild_bucket.name)
 
 
 # Deploy Cloud Run service
