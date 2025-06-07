@@ -32,6 +32,9 @@ steps:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY
+  env:
+    - 'CLOUDSDK_CORE_PROJECT=${PROJECT_ID}'
 
 substitutions:
   _REGION: us-central1  # Default, overridden by --substitutions flag
