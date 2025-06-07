@@ -424,9 +424,25 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Check granted roles
+        run: |
+          SERVICE_ACCOUNT_EMAIL=$(echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email)
+          echo "Checking roles for: $SERVICE_ACCOUNT_EMAIL"
+          gcloud projects get-iam-policy ${{ secrets.GCP_PROJECT_ID }} \
+            --flatten="bindings[].members" \
+            --format="table(bindings.role)" \
+            --filter="bindings.members:serviceAccount:$SERVICE_ACCOUNT_EMAIL"  
+
       # Add propagation delay
-      - name: Wait for IAM propagation
-        run: sleep 120
+      - name: Wait for IAM propagation (with retries)
+        run: |
+          for i in {1..5}; do
+            gcloud artifacts repositories list \
+              --location=${{ secrets.GCP_REGION }} && break || sleep 30
+            echo "Retry $i/5: Waiting for IAM propagation..."
+          done
+
+
 
       - name: Validate repository access
         run: |
