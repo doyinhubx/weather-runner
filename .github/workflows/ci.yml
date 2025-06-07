@@ -420,17 +420,9 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Build and push Docker images with Cloud Build
-        working-directory: ./pulumi  # Important: must be in the pulumi directory
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}  # Add authentication
         run: |
-          # Get bucket name from Pulumi output
-          pulumi login
-          pulumi stack select dev || pulumi stack init dev --non-interactive
-          BUCKET_NAME=$(pulumi stack output cloudbuild_bucket_name)
-          
-          # Move to root directory for source code
-          cd ..
+          # Use a consistent bucket name pattern
+          BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
           
           gcloud builds submit \
             --config=cloudbuild.yaml \
@@ -439,17 +431,17 @@ jobs:
             --substitutions=COMMIT_SHA=${{ github.sha }},_REGION=${{ secrets.GCP_REGION }} \
             --region=${{ secrets.GCP_REGION }}
 
-      - name: Deploy to Cloud Run
-        id: deploy
-        run: |
-          gcloud run deploy nodejs-cloudrun-service \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
-            --region ${{ secrets.GCP_REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --update-env-vars NODE_ENV=dev \
-            --timeout 5m \
-            --port 8080
+            - name: Deploy to Cloud Run
+              id: deploy
+              run: |
+                gcloud run deploy nodejs-cloudrun-service \
+                  --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
+                  --region ${{ secrets.GCP_REGION }} \
+                  --platform managed \
+                  --allow-unauthenticated \
+                  --update-env-vars NODE_ENV=dev \
+                  --timeout 5m \
+                  --port 8080
 
       - name: Output Cloud Run URL
         run: |

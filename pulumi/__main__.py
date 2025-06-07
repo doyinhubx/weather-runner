@@ -488,11 +488,12 @@ from pulumi_gcp import storage
 # Create a dedicated bucket for Cloud Build
 cloudbuild_bucket = storage.Bucket(
     "cloudbuild-bucket",
-    name=f"cloudbuild-bucket-{pulumi.get_stack()}",
+    name=f"{pulumi.get_project()}-cloudbuild-bucket",  # Use project name
     location=region,
     uniform_bucket_level_access=True,
     opts=ResourceOptions(provider=gcp_provider)
 )
+
 
 # Grant Cloud Build access using primitive role (temporary)
 storage_bucket_iam = storage.BucketIAMMember(
