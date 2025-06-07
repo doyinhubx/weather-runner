@@ -426,6 +426,7 @@ jobs:
         run: |
           # Get bucket name from Pulumi output
           pulumi login
+          pulumi stack select dev || pulumi stack init dev --non-interactive
           BUCKET_NAME=$(pulumi stack output cloudbuild_bucket_name)
           
           # Move to root directory for source code
@@ -437,7 +438,7 @@ jobs:
             --gcs-log-dir=gs://$BUCKET_NAME/logs \
             --substitutions=COMMIT_SHA=${{ github.sha }},_REGION=${{ secrets.GCP_REGION }} \
             --region=${{ secrets.GCP_REGION }}
-            
+
       - name: Deploy to Cloud Run
         id: deploy
         run: |
