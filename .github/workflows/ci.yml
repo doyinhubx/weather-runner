@@ -614,7 +614,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Wait for IAM propagation
-        run: sleep 60  # 5 minutes for propagation
+        run: sleep 900  # 5 minutes for propagation
 
       # - name: Validate repository access
       #   run: |
@@ -637,7 +637,8 @@ jobs:
 
       - name: Authenticate Docker to Artifact Registry
         run: |
-          echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev
+          
 
       - name: Build Docker image
         run: |
