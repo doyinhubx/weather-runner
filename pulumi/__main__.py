@@ -496,8 +496,8 @@ required_roles = [
     ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin"),
     ("storage-object-admin", "roles/storage.objectAdmin"),
     ("artifactregistry-reader", "roles/artifactregistry.reader"),
-    # Add this to required_roles list
-	("project-viewer", "roles/viewer")
+	("project-viewer", "roles/viewer"),
+	("run-viewer", "roles/run.viewer"),  # ADD
 ]
 
 # Grant roles to deployer service account - MUST BE FIRST

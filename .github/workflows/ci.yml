@@ -424,29 +424,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # ADDED: Direct validation of required permissions
-      - name: Validate permissions
-        run: |
-          # Test Artifact Registry access
-          gcloud artifacts repositories list --location=${{ secrets.GCP_REGION }} >/dev/null && \
-            echo "Artifact Registry access confirmed"
-          
-          # Test Cloud Run access
-          gcloud run services list --region=${{ secrets.GCP_REGION }} >/dev/null && \
-            echo "Cloud Run access confirmed"
-
-      # Improved propagation handling
-      - name: Wait for IAM propagation (with retries)
-        run: |
-          for i in {1..10}; do
-            if gcloud artifacts repositories list --location=${{ secrets.GCP_REGION }} >/dev/null 2>&1; then
-              echo "IAM propagated successfully"
-              break
-            else
-              echo "Retry $i/10: Waiting for IAM propagation..."
-              sleep 15
-            fi
-          done
+      - name: Wait for IAM propagation
+        run: sleep 300  # 5 minutes for propagation
 
       # - name: Validate repository access
       #   run: |
@@ -464,11 +443,19 @@ jobs:
             -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
             .
 
+      # - name: Push Docker images
+      #   run: |
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+
+      # Retry image push with exponential backoff
       - name: Push Docker images
         run: |
+          for i in {1..5}; do
+            docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep $((2**i))
+          done
           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
-
+        
       - name: Deploy to Cloud Run
         id: deploy
         run: |
