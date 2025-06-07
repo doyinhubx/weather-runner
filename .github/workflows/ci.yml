@@ -383,81 +383,87 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
    
 
-  dev-deploy:
-    name: Deploy to Google Cloud Run (Dev)
-    needs: [ci, infra-deploy]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
-    environment:
-      name: dev
-      url: ${{ steps.deploy.outputs.url }}
+  # dev-deploy:
+  #   name: Deploy to Google Cloud Run (Dev)
+  #   needs: [ci, infra-deploy]
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/dev'
+  #   environment:
+  #     name: dev
+  #     url: ${{ steps.deploy.outputs.url }}
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'npm'
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20.x'
+  #         cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+  #     - name: Install dependencies
+  #       run: npm ci
 
-      - name: Build project
-        run: npm run build
+  #     - name: Build project
+  #       run: npm run build
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
+  #     - name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
+  #         create_credentials_file: true
+  #         export_environment_variables: true
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+  #     - name: Set up Cloud SDK
+  #       uses: google-github-actions/setup-gcloud@v2
 
-      # Grant explicit storage access to admin account
-      - name: Grant bucket access
-        run: |
-          BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
-          gsutil iam ch serviceAccount:$GOOGLE_GHA_CREDS_PATH:roles/storage.admin gs://$BUCKET_NAME
+  #     # - name: Verify bucket access
+  #     #   run: |
+  #     #     BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
+  #     #     gsutil ls gs://$BUCKET_NAME
+  #     #     gsutil iam get gs://$BUCKET_NAME
 
-      - name: Build and push Docker images with Cloud Build
-        run: |
-          BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
+  #     # Grant explicit storage access to admin account
+  #     - name: Grant bucket access
+  #       run: |
+  #         BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
+  #         gsutil iam ch serviceAccount:$GOOGLE_GHA_CREDS_PATH:roles/storage.admin gs://$BUCKET_NAME
+
+  #     - name: Build and push Docker images with Cloud Build
+  #       run: |
+  #         BUCKET_NAME="${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket"
           
-          gcloud builds submit \
-            --config=cloudbuild.yaml \
-            --gcs-source-staging-dir=gs://$BUCKET_NAME/source \
-            --gcs-log-dir=gs://$BUCKET_NAME/logs \
-            --substitutions=COMMIT_SHA=${{ github.sha }},_REGION=${{ secrets.GCP_REGION }} \
-            --region=${{ secrets.GCP_REGION }}
+  #         gcloud builds submit \
+  #           --config=cloudbuild.yaml \
+  #           --gcs-source-staging-dir=gs://$BUCKET_NAME/source \
+  #           --gcs-log-dir=gs://$BUCKET_NAME/logs \
+  #           --substitutions=COMMIT_SHA=${{ github.sha }},_REGION=${{ secrets.GCP_REGION }} \
+  #           --region=${{ secrets.GCP_REGION }}
 
-      # Fix indentation for these steps
-      - name: Deploy to Cloud Run
-        id: deploy
-        run: |
-          gcloud run deploy nodejs-cloudrun-service \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
-            --region ${{ secrets.GCP_REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --update-env-vars NODE_ENV=dev \
-            --timeout 5m \
-            --port 8080
+  #     # Fix indentation for these steps
+  #     - name: Deploy to Cloud Run
+  #       id: deploy
+  #       run: |
+  #         gcloud run deploy nodejs-cloudrun-service \
+  #           --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
+  #           --region ${{ secrets.GCP_REGION }} \
+  #           --platform managed \
+  #           --allow-unauthenticated \
+  #           --update-env-vars NODE_ENV=dev \
+  #           --timeout 5m \
+  #           --port 8080
 
-      - name: Output Cloud Run URL
-        run: |
-          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service \
-            --region ${{ secrets.GCP_REGION }} \
-            --format 'value(status.url)')
-          echo "Deployed to: $SERVICE_URL"
-          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+  #     - name: Output Cloud Run URL
+  #       run: |
+  #         SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service \
+  #           --region ${{ secrets.GCP_REGION }} \
+  #           --format 'value(status.url)')
+  #         echo "Deployed to: $SERVICE_URL"
+  #         echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
-          
+
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
   #   needs: [ci, infra-deploy]
@@ -552,142 +558,142 @@ jobs:
   #         echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
 
-  # dev-deploy:
-  #   name: Deploy to Google Cloud Run (Dev)
-  #   needs: [ci, infra-deploy]
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/dev'
-  #   environment:
-  #     name: dev
-  #     url: ${{ steps.deploy.outputs.url }}
+  dev-deploy:
+    name: Deploy to Google Cloud Run (Dev)
+    needs: [ci, infra-deploy]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+      url: ${{ steps.deploy.outputs.url }}
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20.x'
-  #         cache: 'npm'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
 
-  #     - name: Install dependencies
-  #       run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-  #     - name: Build project
-  #       run: npm run build
+      - name: Build project
+        run: npm run build
 
-  #     - name: Verify service account
-  #       run: |
-  #         echo "Service account email:"
-  #         echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
-  #         echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+      - name: Verify service account
+        run: |
+          echo "Service account email:"
+          echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
+          echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
 
-  #     # - name: Verify service account
-  #     #   run: |
-  #     #     ACTUAL_EMAIL=$(echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email)
-  #     #     EXPECTED_EMAIL="pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
-  #     #     echo "Service account email: $ACTUAL_EMAIL"
-  #     #     echo "Should be: $EXPECTED_EMAIL"
-  #     #     if [ "$ACTUAL_EMAIL" != "$EXPECTED_EMAIL" ]; then
-  #     #       echo "::error::Service account email mismatch!"
-  #     #       exit 1
-  #     #     fi
+      # - name: Verify service account
+      #   run: |
+      #     ACTUAL_EMAIL=$(echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email)
+      #     EXPECTED_EMAIL="pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+      #     echo "Service account email: $ACTUAL_EMAIL"
+      #     echo "Should be: $EXPECTED_EMAIL"
+      #     if [ "$ACTUAL_EMAIL" != "$EXPECTED_EMAIL" ]; then
+      #       echo "::error::Service account email mismatch!"
+      #       exit 1
+      #     fi
 
-  #     # Use admin credentials for Docker operations
-  #     - name: Authenticate to Google Cloud (Admin)
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
-  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
-  #         create_credentials_file: true
-  #         export_environment_variables: true
+      # Use admin credentials for Docker operations
+      - name: Authenticate to Google Cloud (Admin)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
-  #     - name: Set up Cloud SDK
-  #       uses: google-github-actions/setup-gcloud@v2
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
-  #     - name: Wait for IAM propagation
-  #       run: sleep 60  # 5 minutes for propagation
+      - name: Wait for IAM propagation
+        run: sleep 60  # 5 minutes for propagation
 
-  #     # - name: Validate repository access
-  #     #   run: |
-  #     #     gcloud artifacts repositories describe my-nodejs-app-repo \
-  #     #       --location=${{ secrets.GCP_REGION }}
+      # - name: Validate repository access
+      #   run: |
+      #     gcloud artifacts repositories describe my-nodejs-app-repo \
+      #       --location=${{ secrets.GCP_REGION }}
 
-  #     # - name: Verify upload permission
-  #     #   run: |
-  #     #     gcloud artifacts repositories list \
-  #     #       --location=${{ secrets.GCP_REGION }} \
-  #     #       --format="value(name)" | grep my-nodejs-app-repo
+      # - name: Verify upload permission
+      #   run: |
+      #     gcloud artifacts repositories list \
+      #       --location=${{ secrets.GCP_REGION }} \
+      #       --format="value(name)" | grep my-nodejs-app-repo
           
-  #     #     # Test permission by creating a dummy file
-  #     #     echo "test" > test.txt
-  #     #     gcloud artifacts files upload test.txt \
-  #     #       --repository=my-nodejs-app-repo \
-  #     #       --location=${{ secrets.GCP_REGION }} \
-  #     #       --destination=test.txt
+      #     # Test permission by creating a dummy file
+      #     echo "test" > test.txt
+      #     gcloud artifacts files upload test.txt \
+      #       --repository=my-nodejs-app-repo \
+      #       --location=${{ secrets.GCP_REGION }} \
+      #       --destination=test.txt
 
 
-  #     - name: Authenticate Docker to Artifact Registry
-  #       run: |
-  #         echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+      - name: Authenticate Docker to Artifact Registry
+        run: |
+          echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
 
-  #     - name: Build Docker image
-  #       run: |
-  #         docker build \
-  #           -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
-  #           -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
-  #           .
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+            -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
+            .
 
-  #     # - name: Push Docker images
-  #     #   run: |
-  #     #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
-  #     #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+      # - name: Push Docker images
+      #   run: |
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
 
-  #     # # Retry image push with exponential backoff
-  #     # - name: Push Docker images
-  #     #   run: |
-  #     #     for i in {1..5}; do
-  #     #       docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep $((2**i))
-  #     #     done
-  #     #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
+      # # Retry image push with exponential backoff
+      # - name: Push Docker images
+      #   run: |
+      #     for i in {1..5}; do
+      #       docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep $((2**i))
+      #     done
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
         
-  #     # - name: Push Docker images (with admin fallback)
-  #     #   run: |
-  #     #     # Try with deployer account
-  #     #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || \
-  #     #     # Fallback to admin account if needed
-  #     #     echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev && \
-  #     #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+      # - name: Push Docker images (with admin fallback)
+      #   run: |
+      #     # Try with deployer account
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || \
+      #     # Fallback to admin account if needed
+      #     echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev && \
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
           
 
-  #     - name: Push Docker images (with admin fallback)
-  #       run: |
-  #         docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || {
-  #           echo "Falling back to admin credentials..."
-  #           docker logout https://${{ secrets.GCP_REGION }}-docker.pkg.dev
-  #           echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
-  #           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
-  #         }
+      - name: Push Docker images (with admin fallback)
+        run: |
+          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || {
+            echo "Falling back to admin credentials..."
+            docker logout https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+            echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+            docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+          }
 
-  #     - name: Deploy to Cloud Run
-  #       id: deploy
-  #       run: |
-  #         gcloud run deploy nodejs-cloudrun-service \
-  #           --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
-  #           --region ${{ secrets.GCP_REGION }} \
-  #           --platform managed \
-  #           --allow-unauthenticated \
-  #           --update-env-vars NODE_ENV=dev \
-  #           --timeout 5m \
-  #           --port 8080
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          gcloud run deploy nodejs-cloudrun-service \
+            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --update-env-vars NODE_ENV=dev \
+            --timeout 5m \
+            --port 8080
 
-  #     - name: Output Cloud Run URL
-  #       run: |
-  #         SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')
-  #         echo "Deployed to: $SERVICE_URL"
-  #         echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+      - name: Output Cloud Run URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')
+          echo "Deployed to: $SERVICE_URL"
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
 
       # Slack Notifications
