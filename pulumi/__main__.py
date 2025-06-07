@@ -532,6 +532,7 @@ required_roles = [
     ("artifactregistry-writer", "roles/artifactregistry.writer"),  # ADD THIS
     ("run-admin", "roles/run.admin"),
     ("sa-user", "roles/iam.serviceAccountUser"),
+    ("sa-token-creator", "roles/iam.serviceAccountTokenCreator"), # ADD THIS,
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
     ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin"),
     ("storage-object-admin", "roles/storage.objectAdmin"),
