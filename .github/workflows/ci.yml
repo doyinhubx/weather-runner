@@ -654,6 +654,22 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth_docker.outputs.access_token }} # Reference the access_token from the previous step
 
+      - name: Debug Docker Image Tag
+        run: |
+          IMAGE_FULL_TAG="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}"
+          echo "Attempting to build and push image with tag: $IMAGE_FULL_TAG"
+
+
+      - name: Debug Docker Image Tag
+        run: |
+          IMAGE_FULL_TAG="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}"
+          echo "Attempting to build and push image with tag: $IMAGE_FULL_TAG"
+          echo "Region: ${{ secrets.GCP_REGION }}"
+          echo "Project ID: ${{ secrets.GCP_PROJECT_ID }}"
+          echo "Repo Name: my-nodejs-app-repo"
+          echo "Image Name: nodejs-app"
+
+          
       - name: Build Docker image
         run: |
           docker build \
