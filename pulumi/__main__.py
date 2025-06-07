@@ -495,7 +495,9 @@ required_roles = [
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
     ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin"),
     ("storage-object-admin", "roles/storage.objectAdmin"),
-    ("artifactregistry-reader", "roles/artifactregistry.reader")
+    ("artifactregistry-reader", "roles/artifactregistry.reader"),
+    # Add this to required_roles list
+	("project-viewer", "roles/viewer")
 ]
 
 # Grant roles to deployer service account - MUST BE FIRST
