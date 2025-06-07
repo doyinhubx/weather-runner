@@ -494,7 +494,8 @@ required_roles = [
     ("sa-user", "roles/iam.serviceAccountUser"),
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
     ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin"),
-    ("storage-object-admin", "roles/storage.objectAdmin")
+    ("storage-object-admin", "roles/storage.objectAdmin"),
+    ("artifactregistry-reader", "roles/artifactregistry.reader")
 ]
 
 # Grant roles to deployer service account - MUST BE FIRST

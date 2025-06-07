@@ -407,11 +407,11 @@ jobs:
       - name: Build project
         run: npm run build
 
-     # - name: Verify service account
-     #    run: |
-     #      echo "Service account email:"
-     #      echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
-     #      echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+      # - name: Verify service account
+      #   run: |
+      #     echo "Service account email:"
+      #     echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
+      #     echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -464,9 +464,10 @@ jobs:
 
       - name: Output Cloud Run URL
         run: |
-          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region us-central1 --format 'value(status.url)')
+          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')
           echo "Deployed to: $SERVICE_URL"
           echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+
 
       # Slack Notifications
       - name: Notify Slack of Dev Deploy
