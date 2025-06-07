@@ -413,6 +413,18 @@ jobs:
           echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
           echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
+
+      - name: Verify service account
+        run: |
+          ACTUAL_EMAIL=$(echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email)
+          EXPECTED_EMAIL="pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+          echo "Service account email: $ACTUAL_EMAIL"
+          echo "Should be: $EXPECTED_EMAIL"
+          if [ "$ACTUAL_EMAIL" != "$EXPECTED_EMAIL" ]; then
+            echo "::error::Service account email mismatch!"
+            exit 1
+          fi
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -425,12 +437,26 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Wait for IAM propagation
-        run: sleep 300  # 5 minutes for propagation
+        run: sleep 600  # 5 minutes for propagation
 
       # - name: Validate repository access
       #   run: |
       #     gcloud artifacts repositories describe my-nodejs-app-repo \
       #       --location=${{ secrets.GCP_REGION }}
+
+      - name: Verify upload permission
+        run: |
+          gcloud artifacts repositories list \
+            --location=${{ secrets.GCP_REGION }} \
+            --format="value(name)" | grep my-nodejs-app-repo
+          
+          # Test permission by creating a dummy file
+          echo "test" > test.txt
+          gcloud artifacts files upload test.txt \
+            --repository=my-nodejs-app-repo \
+            --location=${{ secrets.GCP_REGION }} \
+            --destination=test.txt
+
 
       - name: Authenticate Docker to Artifact Registry
         run: |
@@ -448,14 +474,22 @@ jobs:
       #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
       #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
 
-      # Retry image push with exponential backoff
-      - name: Push Docker images
-        run: |
-          for i in {1..5}; do
-            docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep $((2**i))
-          done
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
+      # # Retry image push with exponential backoff
+      # - name: Push Docker images
+      #   run: |
+      #     for i in {1..5}; do
+      #       docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep $((2**i))
+      #     done
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
         
+      - name: Push Docker images (with admin fallback)
+        run: |
+          # Try with deployer account
+          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || \
+          # Fallback to admin account if needed
+          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev && \
+          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+          
       - name: Deploy to Cloud Run
         id: deploy
         run: |

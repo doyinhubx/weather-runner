@@ -552,8 +552,9 @@ repo = gcp.artifactregistry.Repository(
 )
 
 # Add explicit repository IAM binding for deployer account
+# Add this after repository creation
 repo_iam = gcp.artifactregistry.RepositoryIamMember(
-    "deployer-repo-iam",
+    "deployer-repo-upload-access",
     repository=repo.name,
     location=region,
     role="roles/artifactregistry.writer",
