@@ -524,6 +524,7 @@ services = [
     "cloudbuild.googleapis.com",
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com"
+    "storage.googleapis.com"
 ]
 
 enabled_apis = []
