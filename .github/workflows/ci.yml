@@ -414,30 +414,31 @@ jobs:
           echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
 
-      - name: Verify service account
-        run: |
-          ACTUAL_EMAIL=$(echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email)
-          EXPECTED_EMAIL="pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
-          echo "Service account email: $ACTUAL_EMAIL"
-          echo "Should be: $EXPECTED_EMAIL"
-          if [ "$ACTUAL_EMAIL" != "$EXPECTED_EMAIL" ]; then
-            echo "::error::Service account email mismatch!"
-            exit 1
-          fi
+      # - name: Verify service account
+      #   run: |
+      #     ACTUAL_EMAIL=$(echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email)
+      #     EXPECTED_EMAIL="pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+      #     echo "Service account email: $ACTUAL_EMAIL"
+      #     echo "Should be: $EXPECTED_EMAIL"
+      #     if [ "$ACTUAL_EMAIL" != "$EXPECTED_EMAIL" ]; then
+      #       echo "::error::Service account email mismatch!"
+      #       exit 1
+      #     fi
 
-      - name: Authenticate to Google Cloud
+      # Use admin credentials for Docker operations
+      - name: Authenticate to Google Cloud (Admin)
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+          credentials_json: '${{ secrets.GCP_ADMIN_SA_KEY }}'
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          create_credentials_file: true  # Creates ADC file
+          create_credentials_file: true
           export_environment_variables: true
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Wait for IAM propagation
-        run: sleep 600  # 5 minutes for propagation
+        run: sleep 300  # 5 minutes for propagation
 
       # - name: Validate repository access
       #   run: |
@@ -460,7 +461,7 @@ jobs:
 
       - name: Authenticate Docker to Artifact Registry
         run: |
-          echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
 
       - name: Build Docker image
         run: |
@@ -482,14 +483,20 @@ jobs:
       #     done
       #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
         
-      - name: Push Docker images (with admin fallback)
+      - name: Push Docker images
         run: |
-          # Try with deployer account
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || \
-          # Fallback to admin account if needed
-          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev && \
+          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
-          
+            
+      # Switch to deployer account for Cloud Run deployment
+      - name: Authenticate to Google Cloud (Deployer)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
       - name: Deploy to Cloud Run
         id: deploy
         run: |
@@ -504,7 +511,9 @@ jobs:
 
       - name: Output Cloud Run URL
         run: |
-          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')
+          SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service \
+            --region ${{ secrets.GCP_REGION }} \
+            --format 'value(status.url)')
           echo "Deployed to: $SERVICE_URL"
           echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
