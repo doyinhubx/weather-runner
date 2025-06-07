@@ -482,36 +482,29 @@ gcp_provider = gcp.Provider(
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
-# Add at the top of your Pulumi code
+# Remove the organizations import and project_details lookup
 from pulumi_gcp import storage
-
-
-# Add this import at the top
-from pulumi_gcp import organizations
-
-# Get project details
-project_details = organizations.get_project(project_id=project)
 
 # Create a dedicated bucket for Cloud Build
 cloudbuild_bucket = storage.Bucket(
     "cloudbuild-bucket",
-    name=f"{pulumi.get_project()}-cloudbuild-bucket",
+    name=f"cloudbuild-bucket-{pulumi.get_stack()}",
     location=region,
     uniform_bucket_level_access=True,
     opts=ResourceOptions(provider=gcp_provider)
 )
 
-# Grant Cloud Build access to the bucket
+# Grant Cloud Build access using primitive role (temporary)
 storage_bucket_iam = storage.BucketIAMMember(
     "cloudbuild-bucket-iam",
     bucket=cloudbuild_bucket.name,
-    role="roles/storage.admin",
-    member=f"serviceAccount:{project_details.number}@cloudbuild.gserviceaccount.com",
+    role="roles/storage.objectAdmin",  # More granular permission
+    member="serviceAccount:cloudbuild@gcp-sa-cloudbuild.iam.gserviceaccount.com",  # Generic service account
     opts=ResourceOptions(provider=gcp_provider)
 )
 
 # Grant admin account access to the bucket
-admin_sa_email = " admin-account-sa@weather-app2-460914.gserviceaccount.com"  # REPLACE WITH YOUR ADMIN EMAIL
+admin_sa_email = "admin-account-sa@weather-app2-460914.gserviceaccount.com"  # REPLACE WITH YOUR ADMIN EMAIL
 admin_bucket_iam = storage.BucketIAMMember(
     "admin-bucket-iam",
     bucket=cloudbuild_bucket.name,
@@ -520,10 +513,13 @@ admin_bucket_iam = storage.BucketIAMMember(
     opts=ResourceOptions(provider=gcp_provider)
 )
 
+# Output bucket name for reference
+pulumi.export("cloudbuild_bucket_name", cloudbuild_bucket.name)
+
 
 
 # Add at the top of your Pulumi code
-admin_sa_email = " admin-account-sa@weather-app2-460914.gserviceaccount.com"  # REPLACE WITH ACTUAL EMAIL
+admin_sa_email = "admin-account-sa@weather-app2-460914.gserviceaccount.com"  # REPLACE WITH ACTUAL EMAIL
 
 # Deployer service account email
 deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"

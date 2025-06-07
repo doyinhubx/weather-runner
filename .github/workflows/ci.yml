@@ -421,11 +421,14 @@ jobs:
 
       - name: Build and push Docker images with Cloud Build
         run: |
+          # Get bucket name from Pulumi output
+          BUCKET_NAME=$(pulumi stack output cloudbuild_bucket_name)
+          
           gcloud builds submit \
             --config=cloudbuild.yaml \
-            --gcs-source-staging-dir=gs://${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket/source \
-            --gcs-log-dir=gs://${{ secrets.GCP_PROJECT_ID }}-cloudbuild-bucket/logs \
-            --substitutions=COMMIT_SHA=${{ github.sha }} \
+            --gcs-source-staging-dir=gs://$BUCKET_NAME/source \
+            --gcs-log-dir=gs://$BUCKET_NAME/logs \
+            --substitutions=COMMIT_SHA=${{ github.sha }},_REGION=${{ secrets.GCP_REGION }} \
             --region=${{ secrets.GCP_REGION }}
 
       - name: Deploy to Cloud Run
