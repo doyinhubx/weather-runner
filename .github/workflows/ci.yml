@@ -442,12 +442,10 @@ jobs:
             echo "Retry $i/5: Waiting for IAM propagation..."
           done
 
-
       - name: Validate repository access
         run: |
-          gcloud artifacts repositories list \
-            --location=${{ secrets.GCP_REGION }} \
-            --format="value(name)" | grep my-nodejs-app-repo
+          gcloud artifacts repositories describe my-nodejs-app-repo \
+            --location=${{ secrets.GCP_REGION }}
 
       - name: Authenticate Docker to Artifact Registry
         run: |
