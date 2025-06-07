@@ -482,6 +482,9 @@ gcp_provider = gcp.Provider(
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
+# Add at the top of your Pulumi code
+admin_sa_email = " admin-account-sa@weather-app2-460914.gserviceaccount.com"  # REPLACE WITH ACTUAL EMAIL
+
 # Deployer service account email
 deployer_sa_email = "pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
@@ -565,6 +568,19 @@ repo_iam = gcp.artifactregistry.RepositoryIamMember(
     )
 )
 
+
+# Add after repository creation
+admin_repo_iam = gcp.artifactregistry.RepositoryIamMember(
+    "admin-repo-access",
+    repository=repo.name,
+    location=region,
+    role="roles/artifactregistry.admin",  # Full access
+    member=f"serviceAccount:{admin_sa_email}",
+    opts=ResourceOptions(
+        provider=gcp_provider,
+        depends_on=[repo]
+    )
+)
 
 # Service account for Cloud Run - DEPENDS ON ENABLED APIS
 cloud_run_sa = gcp.serviceaccount.Account(

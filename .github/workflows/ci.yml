@@ -413,6 +413,11 @@ jobs:
           echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
           echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
 
+      - name: Verify admin account
+        run: |
+          echo "Admin account email:"
+          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | jq -r .client_email
+          echo "Should match Pulumi code"
 
       # - name: Verify service account
       #   run: |
@@ -425,7 +430,7 @@ jobs:
       #       exit 1
       #     fi
 
-      # Use admin credentials for Docker operations
+      # Use admin credentials for all operations
       - name: Authenticate to Google Cloud (Admin)
         uses: google-github-actions/auth@v2
         with:
@@ -437,31 +442,26 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Wait for IAM propagation
-        run: sleep 300  # 5 minutes for propagation
-
-      # - name: Validate repository access
-      #   run: |
-      #     gcloud artifacts repositories describe my-nodejs-app-repo \
-      #       --location=${{ secrets.GCP_REGION }}
-
-      # - name: Verify upload permission
-      #   run: |
-      #     gcloud artifacts repositories list \
-      #       --location=${{ secrets.GCP_REGION }} \
-      #       --format="value(name)" | grep my-nodejs-app-repo
+      - name: Validate repository access
+        run: |
+          # List repositories to verify access
+          gcloud artifacts repositories list --location=${{ secrets.GCP_REGION }}
           
-      #     # Test permission by creating a dummy file
-      #     echo "test" > test.txt
-      #     gcloud artifacts files upload test.txt \
-      #       --repository=my-nodejs-app-repo \
-      #       --location=${{ secrets.GCP_REGION }} \
-      #       --destination=test.txt
-
+          # Describe our specific repository
+          gcloud artifacts repositories describe my-nodejs-app-repo \
+            --location=${{ secrets.GCP_REGION }}
+          
+          # Test write access
+          echo "test" > test.txt
+          gcloud artifacts files upload test.txt \
+            --repository=my-nodejs-app-repo \
+            --location=${{ secrets.GCP_REGION }} \
+            --destination=test.txt
 
       - name: Authenticate Docker to Artifact Registry
         run: |
-          echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+          # Use JSON key directly in Docker login
+          cat $GOOGLE_APPLICATION_CREDENTIALS | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
 
       - name: Build Docker image
         run: |
@@ -470,32 +470,12 @@ jobs:
             -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
             .
 
-      # - name: Push Docker images
-      #   run: |
-      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
-      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
-
-      # # Retry image push with exponential backoff
-      # - name: Push Docker images
-      #   run: |
-      #     for i in {1..5}; do
-      #       docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep $((2**i))
-      #     done
-      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
-        
-      - name: Push Docker images
+      - name: Push Docker images with retries
         run: |
+          for i in {1..5}; do
+            docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} && break || sleep 10
+          done
           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
-            
-      # Switch to deployer account for Cloud Run deployment
-      - name: Authenticate to Google Cloud (Deployer)
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
 
       - name: Deploy to Cloud Run
         id: deploy
