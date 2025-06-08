@@ -568,12 +568,12 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create Terraform State Bucket
-        run: |
-          # Check if bucket exists, create if not
-          if ! gsutil ls gs://weather-app-v2; then
-            gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://weather-app-v2
-          fi
+      # - name: Create Terraform State Bucket
+      #   run: |
+      #     # Check if bucket exists, create if not
+      #     if ! gsutil ls gs://weather-app-v2; then
+      #       gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://weather-app-v2
+      #     fi
 
       # FIRST: Create Artifact Registry with Terraform
       - name: Setup Terraform
