@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "weather-app-v2"  # Create this in GCP first
-    prefix = "dev/cloudrun"
+    bucket = "weather-app-tfstate-v2"
+    prefix = "dev"
   }
 }

@@ -568,24 +568,33 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # - name: Create Terraform State Bucket
-      #   run: |
-      #     # Check if bucket exists, create if not
-      #     if ! gsutil ls gs://weather-app-v2; then
-      #       gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://weather-app-v2
-      #     fi
+      # 1. CREATE STATE BUCKET WITH PROPER PERMISSIONS
+      - name: Create Terraform State Bucket
+        run: |
+          BUCKET_NAME="weather-app-tfstate-v2"
+          # Create bucket if not exists
+          if ! gsutil ls gs://$BUCKET_NAME; then
+            gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
+          fi
+          # Grant permissions to service account
+          gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
 
-      # FIRST: Create Artifact Registry with Terraform
+      # 2. INIT TERRAFORM WITH EXPLICIT BACKEND CONFIG
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.0
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=weather-app-tfstate-v2" \
+            -backend-config="prefix=dev"
         working-directory: ./terraform/dev
         env:
           GOOGLE_CREDENTIALS: '${{ secrets.GCP_DEV_SA_KEY }}'
+
+    # ... rest of your steps unchanged ...
 
       - name: Create Artifact Registry
         run: |
