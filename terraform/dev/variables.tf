@@ -14,3 +14,8 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "artifact_repo" {
+  description = "Artifact Registry repository name"
+  type        = string
+}

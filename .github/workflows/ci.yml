@@ -666,14 +666,14 @@ jobs:
 #           SLACK_COLOR: danger
 
 
-
-
-
   infra-deploy:
-    name: Provision Infra (Dev)
-    needs: [ci]
+    name: Setup Terraform Infrastructure
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+    outputs:
+      tf_bucket: ${{ steps.tf-bucket.outputs.bucket_name }}
+      repo_name: ${{ steps.tf-infra.outputs.artifact_repo }}
 
     steps:
       - name: Checkout code
@@ -683,26 +683,48 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Create Terraform State Bucket
+      - name: Create Terraform State Bucket
+        id: tf-bucket
+        run: |
+          BUCKET_NAME="weather-app-tfstate-v2-${{ github.run_id }}"
+          gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
+          gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.0
 
-      - name: Terraform Init & Apply
+      - name: Terraform Init
         run: |
-          terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=dev"
-          terraform apply -auto-approve \
-            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
-            -var="region=us-central1"
+          terraform init \
+            -backend-config="bucket=${{ steps.tf-bucket.outputs.bucket_name }}" \
+            -backend-config="prefix=infra"
         working-directory: ./terraform/dev
 
+      # Create Artifact Registry only
+      - name: Create Infrastructure
+        id: tf-infra
+        run: |
+          terraform apply -auto-approve \
+            -target=google_artifact_registry_repository.weather_appv2 \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="region=us-central1"
+          repo_name=$(terraform output -raw artifact_repo_name)
+          echo "artifact_repo=$repo_name" >> $GITHUB_OUTPUT
+        working-directory: ./terraform/dev
 
   dev-deploy:
-    name: Deploy App to Cloud Run (Dev)
-    runs-on: ubuntu-latest
+    name: Deploy Application
     needs: [ci, infra-deploy]
-    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
     environment:
       name: dev
       url: ${{ steps.tf-output.outputs.service_url }}
@@ -711,43 +733,75 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js and Install
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'npm'
 
-      - run: npm ci
-      - run: npm run build
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Authenticate to GCP
+      - name: Build project
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker
         run: gcloud auth configure-docker us-central1-docker.pkg.dev
 
-      - name: Build and Push Docker image
+      # Build and push using repo name from infra job
+      - name: Build Docker image
         run: |
-          docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.sha }} .
-          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.sha }}
+          docker build \
+            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-${{ github.sha }} \
+            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-latest \
+            .
 
-      - name: Redeploy Cloud Run with New Image
+      - name: Push Docker images
+        run: |
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-${{ github.sha }}
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-latest
+
+      # Initialize Terraform with same state bucket
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ needs.infra-deploy.outputs.tf_bucket }}" \
+            -backend-config="prefix=app"
+        working-directory: ./terraform/dev
+        env:
+          GOOGLE_CREDENTIALS: '${{ secrets.GCP_DEV_SA_KEY }}'
+
+      # Deploy Cloud Run service
+      - name: Deploy to Cloud Run
+        id: tf-apply
         run: |
           terraform apply -auto-approve \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1" \
-            -var="image_tag=${{ github.sha }}"
+            -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
+            -var="artifact_repo=${{ needs.infra-deploy.outputs.repo_name }}"
         working-directory: ./terraform/dev
 
-      - name: Output URL
+      - name: Extract Service URL
         id: tf-output
-        run: echo "service_url=$(terraform output -raw service_url)" >> $GITHUB_OUTPUT
+        run: |
+          url=$(terraform output -raw service_url)
+          echo "service_url=$url" >> $GITHUB_OUTPUT
         working-directory: ./terraform/dev
 
-
-        # ... rest unchanged (Slack notifications, etc)
+      # ... (Slack notifications remain the same) ...
 
       - name: Notify Slack of Dev Deploy
         if: success()
