@@ -568,6 +568,27 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      # FIRST: Create Artifact Registry with Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform/dev
+        env:
+          GOOGLE_CREDENTIALS: '${{ secrets.GCP_DEV_SA_KEY }}'
+
+      - name: Create Artifact Registry
+        run: |
+          terraform apply -auto-approve \
+            -target=google_artifact_registry_repository.weather_appv2 \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="region=us-central1"
+        working-directory: ./terraform/dev
+
+      # NOW configure Docker and push images
       - name: Configure Docker
         run: gcloud auth configure-docker us-central1-docker.pkg.dev
 
@@ -583,25 +604,14 @@ jobs:
           docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.ref_name }}-${{ github.sha }}
           docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.ref_name }}-latest
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.7.0
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ./terraform/dev
-        env:
-          GOOGLE_CREDENTIALS: '${{ secrets.GCP_DEV_SA_KEY }}'
-
-      - name: Terraform Apply
+      # FINALLY: Deploy Cloud Run service
+      - name: Deploy to Cloud Run
         id: tf-apply
         run: |
           terraform apply -auto-approve \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1" \
-            -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
-            -var="branch_name=${{ github.ref_name }}"
+            -var="image_tag=${{ github.ref_name }}-${{ github.sha }}"
         working-directory: ./terraform/dev
 
       - name: Extract Service URL
@@ -611,8 +621,7 @@ jobs:
           echo "service_url=$url" >> $GITHUB_OUTPUT
         working-directory: ./terraform/dev
 
-      - name: Output Cloud Run URL
-        run: echo "Deployed to: ${{ steps.tf-output.outputs.service_url }}"
+      # ... rest unchanged (Slack notifications, etc)
 
       - name: Notify Slack of Dev Deploy
         if: success()
@@ -641,11 +650,7 @@ jobs:
 
 
 
-
-
-
-
-
+      
 
 
 
