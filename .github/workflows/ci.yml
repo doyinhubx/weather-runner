@@ -688,25 +688,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # # Create Terraform State Bucket
-      # - name: Create Terraform State Bucket
-      #   id: tf-bucket
-      #   run: |
-      #     BUCKET_NAME="weather-app-tfstate-v2-${{ github.run_id }}"
-      #     gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
-      #     gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
-      #     echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
-
-      # 1. CREATE STATE BUCKET WITH PROPER PERMISSIONS
+      # Create Terraform State Bucket
       - name: Create Terraform State Bucket
+        id: tf-bucket
         run: |
-          BUCKET_NAME="weather-app-tfstate-v2"
-          # Create bucket if not exists
-          if ! gsutil ls gs://$BUCKET_NAME; then
-            gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
-          fi
-          # Grant permissions to service account
+          BUCKET_NAME="weather-app-tfstate-v2-${{ github.run_id }}"
+          gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
           gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
