@@ -784,7 +784,7 @@ jobs:
 
       - name: Authenticate Docker with access token
         run: |
-          echo "${{ secrets.GCP_PULUMI_DEV_SA_KEY }}" > $HOME/gcp-key.json
+          echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' > $HOME/gcp-key.json
           gcloud auth activate-service-account --key-file=$HOME/gcp-key.json
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
           gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
