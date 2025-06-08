@@ -845,14 +845,20 @@ jobs:
       #     gcloud artifacts repositories get-iam-policy my-nodejs-app-repo \
       #       --location=us-central1 --project=${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Push Docker images (with admin fallback)
+      # - name: Push Docker images (with admin fallback)
+      #   run: |
+      #     docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || {
+      #       echo "Falling back to admin credentials..."
+      #       docker logout https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+      #       echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+      #       docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+      #     }
+
+      - name: Push Docker images to Artifact Registry
         run: |
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || {
-            echo "Falling back to admin credentials..."
-            docker logout https://${{ secrets.GCP_REGION }}-docker.pkg.dev
-            echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
-            docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
-          }
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+
 
       - name: Deploy to Cloud Run
         id: deploy
