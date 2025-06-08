@@ -840,10 +840,10 @@ jobs:
             -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
             .
 
-      - name: Test Artifact Registry permissions
-        run: |
-          gcloud artifacts repositories get-iam-policy my-nodejs-app-repo \
-            --location=us-central1 --project=${{ secrets.GCP_PROJECT_ID }}
+      # - name: Test Artifact Registry permissions
+      #   run: |
+      #     gcloud artifacts repositories get-iam-policy my-nodejs-app-repo \
+      #       --location=us-central1 --project=${{ secrets.GCP_PROJECT_ID }}
 
       - name: Push Docker images (with admin fallback)
         run: |
