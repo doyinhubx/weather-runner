@@ -866,24 +866,24 @@ jobs:
         continue-on-error: true
 
 
-      - name: Import Cloud Run service if exists
+      - name: Quick service existence check
+        id: service-check
         run: |
-          SERVICE_NAME="weather-app-devv2"
-          REGION="us-central1"
-          PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
-          TF_RESOURCE="google_cloud_run_service.weather_app_devv2"
+          EXISTS=$(gcloud run services list \
+            --filter="metadata.name=weather-app-devv2" \
+            --region=us-central1 \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --format="value(name)" \
+            --limit=1)
+          echo "exists=$EXISTS" >> $GITHUB_OUTPUT
+        timeout-minutes: 1
 
-          EXISTS=$(gcloud run services describe $SERVICE_NAME --region=$REGION --project=$PROJECT_ID --format="value(metadata.name)" || true)
-
-          if [ "$EXISTS" = "$SERVICE_NAME" ]; then
-            echo "Service $SERVICE_NAME exists. Importing into Terraform..."
-            terraform import $TF_RESOURCE projects/$PROJECT_ID/locations/$REGION/services/$SERVICE_NAME || true
-          else
-            echo "Service $SERVICE_NAME does not exist. Proceeding with creation."
-          fi
+      - name: Import service if exists
+        if: steps.service-check.outputs.exists == 'weather-app-devv2'
+        run: |
+          terraform import google_cloud_run_service.weather_app_devv2 \
+            projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/services/weather-app-devv2
         working-directory: ./terraform/dev/app
-        env:
-          GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
 
       #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
       - name: Validate Terraform (App)
