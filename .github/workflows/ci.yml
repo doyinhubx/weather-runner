@@ -716,7 +716,7 @@ jobs:
 
 # # Cloud Run (Dev Deployment) with Terraform Infra Provisiing (infra-deploy and dev-deploy split)
 # #-----------------------------------------------------------------  
-  infra-deploy:
+  infra-deploy (terraform):
     name: Setup Terraform Infrastructure
     needs: ci
     runs-on: ubuntu-latest
@@ -788,7 +788,7 @@ jobs:
           echo "artifact_repo=$repo_name" >> $GITHUB_OUTPUT
         working-directory: ./terraform/dev/artifact-registry
 
-  dev-deploy:
+  dev-deploy (terraform):
     name: Deploy to Google Cloud Run (Dev)
     needs: [ci, infra-deploy]
     runs-on: ubuntu-latest
@@ -859,6 +859,7 @@ jobs:
       - name: Terraform Plan (App)
         run: |
           terraform plan \
+          -lock-timeout=120s \
           -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -var="region=us-central1" \
           -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
@@ -870,6 +871,7 @@ jobs:
         id: tf-apply
         run: |
           terraform apply -auto-approve \
+            -lock-timeout=120s \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1" \
             -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
