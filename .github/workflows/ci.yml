@@ -790,7 +790,7 @@ jobs:
 
   dev-deploy-terraform:
     name: Deploy to Google Cloud Run (Dev)
-    needs: [ci, infra-deploy]
+    needs: [ci, infra-deploy-terraform]
     runs-on: ubuntu-latest
     environment:
       name: dev
