@@ -775,7 +775,6 @@ jobs:
         id: tf-infra
         run: |
           terraform apply -auto-approve -input=false -lock-timeout=300s \
-            -target=google_artifact_registry_repository.weather_appv2 \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1"
           repo_name=$(terraform output -raw artifact_repo_name)
