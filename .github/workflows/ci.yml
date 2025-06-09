@@ -716,7 +716,7 @@ jobs:
 
 # # Cloud Run (Dev Deployment) with Terraform Infra Provisiing (infra-deploy and dev-deploy split)
 # #-----------------------------------------------------------------  
-  infra-deploy (terraform):
+  infra-deploy-terraform:
     name: Setup Terraform Infrastructure
     needs: ci
     runs-on: ubuntu-latest
@@ -788,7 +788,7 @@ jobs:
           echo "artifact_repo=$repo_name" >> $GITHUB_OUTPUT
         working-directory: ./terraform/dev/artifact-registry
 
-  dev-deploy (terraform):
+  dev-deploy-terraform:
     name: Deploy to Google Cloud Run (Dev)
     needs: [ci, infra-deploy]
     runs-on: ubuntu-latest
