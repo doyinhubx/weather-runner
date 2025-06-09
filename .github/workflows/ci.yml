@@ -850,20 +850,20 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
 
-      # # Add lock cleanup before any operations
-      # - name: Clean Stale Locks
-      #   run: |
-      #     # List and remove stale locks older than 15 minutes
-      #     gsutil ls gs://${{ needs.infra-deploy.outputs.tf_bucket }}/app/*.tflock | while read lock; do
-      #       created=$(gsutil stat $lock | grep "Creation time:" | cut -d: -f2-)
-      #       lock_time=$(date -d "$created" +%s)
-      #       current_time=$(date +%s)
-      #       if (( current_time - lock_time > 900 )); then
-      #         echo "Removing stale lock: $lock"
-      #         gsutil rm $lock
-      #       fi
-      #     done
-      #   continue-on-error: true
+      # Add lock cleanup before any operations
+      - name: Clean Stale Locks
+        run: |
+          # List and remove stale locks older than 15 minutes
+          gsutil ls gs://${{ needs.infra-deploy.outputs.tf_bucket }}/app/*.tflock | while read lock; do
+            created=$(gsutil stat $lock | grep "Creation time:" | cut -d: -f2-)
+            lock_time=$(date -d "$created" +%s)
+            current_time=$(date +%s)
+            if (( current_time - lock_time > 900 )); then
+              echo "Removing stale lock: $lock"
+              gsutil rm $lock
+            fi
+          done
+        continue-on-error: true
 
 
       # - name: Import Cloud Run service if exists
