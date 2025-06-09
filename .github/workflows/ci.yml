@@ -195,7 +195,7 @@ jobs:
   #-----------------------------------------------------------------------------
   # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Arifact Registry, Pulumi & Terraform)
   #-----------------------------------------------------------------------------
-  # Cloud Run Dev Deployment using DockerHub
+  # Cloud Run Dev Deployment using DockerHub (weather-app-sa)
   #-----------------------------------------------------------     
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
@@ -269,7 +269,7 @@ jobs:
       
 
 
-  # # Cloud Run Dev Deployment with Artifact Registry
+  # # Cloud Run Dev Deployment with Artifact Registry (weather-app-sa)
   # #-----------------------------------------------------------
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
@@ -733,7 +733,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Set up Cloud SDK
@@ -815,7 +815,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Set up Cloud SDK
@@ -849,7 +849,7 @@ jobs:
             -backend-config="prefix=app"
         working-directory: ./terraform/dev/app
         env:
-          GOOGLE_CREDENTIALS: '${{ secrets.GCP_DEV_SA_KEY }}'
+          GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
 
       #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
       - name: Validate Terraform (App)
