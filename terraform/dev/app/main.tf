@@ -27,6 +27,14 @@ resource "google_cloud_run_service" "weather_app_devv2" {
     percent         = 100
     latest_revision = true
   }
+
+  # Correct lifecycle policy
+  lifecycle {
+    ignore_changes = [
+      # Add any attributes that might change externally
+      # template[0].spec[0].containers[0].image
+    ]
+  }
 }
 
 resource "google_cloud_run_service_iam_member" "public_access" {
@@ -35,6 +43,3 @@ resource "google_cloud_run_service_iam_member" "public_access" {
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
-
-
-
