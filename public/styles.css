@@ -141,7 +141,7 @@ main {
 .nav-links button {
   font-weight: bold;
   padding: 12px 20px;
-  background-color: grey  ;
+  background-color: #ccc;
   color: white;
   border: none;
   border-radius: 3px;
@@ -149,5 +149,5 @@ main {
 }
 
 .nav-links button:hover {
-  background-color: #ccc;
+  background-color: grey;
 }

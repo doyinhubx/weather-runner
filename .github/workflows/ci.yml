@@ -850,7 +850,6 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
 
-
       # Add lock cleanup before any operations
       - name: Clean Stale Locks
         run: |
@@ -865,6 +864,26 @@ jobs:
             fi
           done
         continue-on-error: true
+
+
+      - name: Import Cloud Run service if exists
+        run: |
+          SERVICE_NAME="weather-app-devv2"
+          REGION="us-central1"
+          PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          TF_RESOURCE="google_cloud_run_service.weather_app_devv2"
+
+          EXISTS=$(gcloud run services describe $SERVICE_NAME --region=$REGION --project=$PROJECT_ID --format="value(metadata.name)" || true)
+
+          if [ "$EXISTS" = "$SERVICE_NAME" ]; then
+            echo "Service $SERVICE_NAME exists. Importing into Terraform..."
+            terraform import $TF_RESOURCE projects/$PROJECT_ID/locations/$REGION/services/$SERVICE_NAME || true
+          else
+            echo "Service $SERVICE_NAME does not exist. Proceeding with creation."
+          fi
+        working-directory: ./terraform/dev/app
+        env:
+          GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
 
       #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
       - name: Validate Terraform (App)
@@ -885,8 +904,7 @@ jobs:
       - name: Deploy to Cloud Run
         id: tf-apply
         run: |
-          terraform apply -auto-approve \
-            -lock-timeout=300s \
+          terraform apply -auto-approve -lock-timeout=5m \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1" \
             -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
@@ -900,8 +918,8 @@ jobs:
           echo "service_url=$url" >> $GITHUB_OUTPUT
         working-directory: ./terraform/dev/app
 
+      
       # ... (Slack notifications remain the same) ...
-
       - name: Notify Slack of Dev Deploy
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -927,4 +945,22 @@ jobs:
             Commit: `${{ github.sha }}`
           SLACK_COLOR: danger
 
-  
+
+  # Terraform Post-Deployment Cleanup - to prevent state bloat
+  #------------------------------------------------
+  cleanup:
+    name: Cleanup
+    needs: dev-deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        
+      - name: Select Workspace
+        run: |
+          terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+          terraform workspace select ${{ github.run_id }}
+          terraform workspace delete -force ${{ github.run_id }}
+        working-directory: ./terraform/dev/app
+        continue-on-error: true
