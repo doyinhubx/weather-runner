@@ -765,7 +765,8 @@ jobs:
         working-directory: ./terraform/dev/artifact-registry
 
       - name: Terraform Plan (for Artifact Registry)
-        run: terraform plan \
+        run: |
+          terraform plan \
           -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -var="region=us-central1"
         working-directory: ./terraform/dev/artifact-registry
@@ -850,7 +851,8 @@ jobs:
         working-directory: ./terraform/dev/app
 
       - name: Terraform Plan (App)
-        run: terraform plan \
+        run: |
+          terraform plan \
           -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -var="region=us-central1" \
           -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
