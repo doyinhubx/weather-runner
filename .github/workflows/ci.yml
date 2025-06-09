@@ -739,7 +739,7 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Create Terraform State Bucket
+      # Create Terraform State Bucket Dynaically (ot Efficient)
       - name: Create Terraform State Bucket
         id: tf-bucket
         run: |
@@ -747,6 +747,12 @@ jobs:
           gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
           gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+
+      # Create Terraform State Bucket with pre-created static bucket
+      - name: Use Predefined Bucket
+        id: tf-bucket
+        run: |
+          echo "bucket_name=weather-app-tfstate-v2" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -759,6 +765,10 @@ jobs:
             -backend-config="bucket=${{ steps.tf-bucket.outputs.bucket_name }}" \
             -backend-config="prefix=artifact-registry"
         working-directory: ./terraform/dev/artifact-registry
+
+
+
+
 
       #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
       - name: Validate Terraform
