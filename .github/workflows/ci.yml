@@ -766,10 +766,6 @@ jobs:
             -backend-config="prefix=artifact-registry"
         working-directory: ./terraform/dev/artifact-registry
 
-
-
-
-
       #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
       - name: Validate Terraform
         run: terraform validate
