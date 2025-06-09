@@ -858,7 +858,6 @@ jobs:
       - name: Terraform Plan (App)
         run: |
           terraform plan \
-          -lock-timeout=300s \
           -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -var="region=us-central1" \
           -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
@@ -870,7 +869,6 @@ jobs:
         id: tf-apply
         run: |
           terraform apply -auto-approve \
-            -lock-timeout=300s \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1" \
             -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
