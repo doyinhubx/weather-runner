@@ -195,7 +195,7 @@ jobs:
   #-----------------------------------------------------------------------------
   # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Arifact Registry, Pulumi & Terraform)
   #-----------------------------------------------------------------------------
-  # Cloud Run Dev Deployment using DockerHub (weather-app-sa)
+  # Cloud Run Dev Deployment using DockerHub (SA: weather-app-sa - weather-app project)
   #-----------------------------------------------------------     
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
@@ -269,7 +269,7 @@ jobs:
       
 
 
-  # # Cloud Run Dev Deployment with Artifact Registry (weather-app-sa)
+  # # Cloud Run Dev Deployment with Artifact Registry (SA: weather-app-sa - weather-app project)
   # #-----------------------------------------------------------
   # dev-deploy:
   #   name: Deploy to Google Cloud Run (Dev)
@@ -365,7 +365,7 @@ jobs:
 
 
 
-# # # Cloud Run (Dev Deployment) with Pulumi Infra Provisioning
+# # # Cloud Run (Dev Deployment) with Pulumi Infra Provisioning (SA: pulumi-dev-deployer - weather-app2 project)
 # # #-----------------------------------------------------------------        
 #   infra-deploy:
 #     name: Provision GCP Infra via Pulumi (Dev)
@@ -772,11 +772,11 @@ jobs:
           -var="region=us-central1"
         working-directory: ./terraform/dev/artifact-registry
 
-      - name: Import existing Artifact Registry (idempotent)
-        run: |
-          terraform import google_artifact_registry_repository.weather_appv2 \
-            projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/repositories/weather-app-repov2 || true
-        working-directory: ./terraform/dev/artifact-registry
+      # - name: Import existing Artifact Registry (idempotent)
+      #   run: |
+      #     terraform import google_artifact_registry_repository.weather_appv2 \
+      #       projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/repositories/weather-app-repov2 || true
+      #   working-directory: ./terraform/dev/artifact-registry
 
       - name: Apply Artifact Registry Only
         id: tf-infra
