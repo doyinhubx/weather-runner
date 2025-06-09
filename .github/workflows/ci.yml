@@ -718,6 +718,7 @@ jobs:
 # #-----------------------------------------------------------------  
   infra-deploy:
     name: Setup Terraform Infrastructure
+    needs: ci
     runs-on: ubuntu-latest
     environment:
       name: dev
@@ -769,6 +770,12 @@ jobs:
           terraform plan \
           -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -var="region=us-central1"
+        working-directory: ./terraform/dev/artifact-registry
+
+      - name: Import existing Artifact Registry (idempotent)
+        run: |
+          terraform import google_artifact_registry_repository.weather_appv2 \
+            projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/repositories/weather-app-repov2 || true
         working-directory: ./terraform/dev/artifact-registry
 
       - name: Apply Artifact Registry Only
