@@ -51,7 +51,6 @@ frontend/
 .tfstate
 .tfstate.backup
 
-
 #Pulumi
 .pulumi/
 pulumi/venv*

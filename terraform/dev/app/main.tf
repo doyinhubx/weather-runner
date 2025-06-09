@@ -3,12 +3,6 @@ provider "google" {
   region  = var.region
 }
 
-resource "google_artifact_registry_repository" "weather_appv2" {
-  location      = var.region
-  repository_id = "weather-app-repov2"
-  format        = "DOCKER"
-}
-
 resource "google_cloud_run_service" "weather_app_devv2" {
   name     = "weather-app-devv2"
   location = var.region
@@ -17,8 +11,9 @@ resource "google_cloud_run_service" "weather_app_devv2" {
     spec {
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_repo}/weather-appv2:${var.image_tag}"
-        ports { container_port = 8080 }
-
+        ports {
+          container_port = 8080
+        }
         env {
           name  = "NODE_ENV"
           value = "dev"
@@ -40,4 +35,3 @@ resource "google_cloud_run_service_iam_member" "public_access" {
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
-
