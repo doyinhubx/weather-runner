@@ -739,14 +739,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Create Terraform State Bucket Dynaically (ot Efficient)
-      - name: Create Terraform State Bucket
-        id: tf-bucket
-        run: |
-          BUCKET_NAME="weather-app-tfstate-v2-${{ github.run_id }}"
-          gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
-          gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
-          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+      # # Create Terraform State Bucket Dynaically (ot Efficient)
+      # - name: Create Terraform State Bucket
+      #   id: tf-bucket
+      #   run: |
+      #     BUCKET_NAME="weather-app-tfstate-v2-${{ github.run_id }}"
+      #     gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
+      #     gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
+      #     echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
 
       # Create Terraform State Bucket with pre-created static bucket
       - name: Use Predefined Bucket
