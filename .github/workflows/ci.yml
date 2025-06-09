@@ -193,7 +193,7 @@ jobs:
          
 
   #-----------------------------------------------------------------------------
-  # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Arifact Registry, Pulumi & Terraform)
+  # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Artifact Registry, Pulumi and Terraform)
   #-----------------------------------------------------------------------------
   # Cloud Run Dev Deployment using DockerHub (SA: weather-app-sa - weather-app project)
   #-----------------------------------------------------------     
@@ -850,6 +850,22 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
 
+
+      # Add lock cleanup before any operations
+      - name: Clean Stale Locks
+        run: |
+          # List and remove stale locks older than 15 minutes
+          gsutil ls gs://${{ needs.infra-deploy.outputs.tf_bucket }}/app/*.tflock | while read lock; do
+            created=$(gsutil stat $lock | grep "Creation time:" | cut -d: -f2-)
+            lock_time=$(date -d "$created" +%s)
+            current_time=$(date +%s)
+            if (( current_time - lock_time > 900 )); then
+              echo "Removing stale lock: $lock"
+              gsutil rm $lock
+            fi
+          done
+        continue-on-error: true
+
       #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
       - name: Validate Terraform (App)
         run: terraform validate
@@ -858,6 +874,7 @@ jobs:
       - name: Terraform Plan (App)
         run: |
           terraform plan \
+          -lock-timeout=300s \
           -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -var="region=us-central1" \
           -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
@@ -869,6 +886,7 @@ jobs:
         id: tf-apply
         run: |
           terraform apply -auto-approve \
+            -lock-timeout=300s \
             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var="region=us-central1" \
             -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \

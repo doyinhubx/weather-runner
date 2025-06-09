@@ -137,3 +137,17 @@ main {
   border-radius: 8px;
   border-left: 4px solid #4285f4; /* Firebase blue accent */
 }
+
+.nav-links button {
+  font-weight: bold;
+  padding: 12px 20px;
+  background-color: grey  ;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.nav-links button:hover {
+  background-color: #ccc;
+}
