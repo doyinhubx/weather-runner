@@ -1,5 +1,5 @@
 name: pulumi-gcp-crun
-description: A minimal Google Cloud Python Pulumi program
+description: Provisioning a GCP Cloud Run CI/CD Project Using Pulumi (Python SDK)
 runtime:
   name: python
   options:
