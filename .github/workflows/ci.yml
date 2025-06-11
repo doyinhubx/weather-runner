@@ -213,7 +213,7 @@ jobs:
       - name: Notify Slack of Production Deploy Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
-        with:
+        env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
           SLACK_MESSAGE: |
             ✅ *Production Deployment Completed*  
