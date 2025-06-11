@@ -236,13 +236,69 @@ jobs:
             Please check GitHub Actions logs.
           SLACK_COLOR: danger
 
+      # - name: Slack Alert - Production Deploy Successful
+      #   if: success()
+      #   uses: slackapi/slack-github-action@v1.24.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": ":white_check_mark: Production Deployment Successful",
+      #         "blocks": [
+      #           {
+      #             "type": "section",
+      #             "text": {
+      #               "type": "mrkdwn",
+      #               "text": ":white_check_mark: *Production Deployment Successful*"
+      #             }
+      #           },
+      #           {
+      #             "type": "divider"
+      #           },
+      #           {
+      #             "type": "section",
+      #             "fields": [
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
+      #               },
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Branch:*\n`${{ github.ref_name }}`"
+      #               }
+      #             ]
+      #           },
+      #           {
+      #             "type": "section",
+      #             "fields": [
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${ { github.sha | slice: 0, 7 }}>"
+      #               },
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Actor:*\n${{ github.actor }}"
+      #               }
+      #             ]
+      #           },
+      #           {
+      #             "type": "section",
+      #             "text": {
+      #               "type": "mrkdwn",
+      #               "text": "*Deployment URL:*\n${{ steps.tf-output.outputs.service_url }}"
+      #             }
+      #           }
+      #         ]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
+
+
       - name: Slack Alert - Production Deploy Successful
         if: success()
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |
             {
-              "text": ":white_check_mark: Production Deployment Successful",
               "blocks": [
                 {
                   "type": "section",
@@ -272,7 +328,7 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${ { github.sha | slice: 0, 7 }}>"
+                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
                     },
                     {
                       "type": "mrkdwn",
@@ -291,7 +347,6 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
-
 
 
   # docker:
