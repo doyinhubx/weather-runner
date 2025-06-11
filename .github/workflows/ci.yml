@@ -210,18 +210,18 @@ jobs:
 
       # Slack Notifications
       #---------------------------------------------------
-      - name: Notify Slack of Production Deploy Success
-        if: success()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
-          SLACK_MESSAGE: |
-            ✅ *Production Deployment Completed*  
-            Repository: `${{ github.repository }}`  
-            Branch: `${{ github.ref_name }}`  
-            Commit: `${{ github.sha }}`  
-            URL: https://${{ github.repository_owner }}.github.io/weather-runner
-          SLACK_COLOR: good
+      # - name: Notify Slack of Production Deploy Success
+      #   if: success()
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+      #     SLACK_MESSAGE: |
+      #       ✅ *Production Deployment Completed*  
+      #       Repository: `${{ github.repository }}`  
+      #       Branch: `${{ github.ref_name }}`  
+      #       Commit: `${{ github.sha }}`  
+      #       URL: https://${{ github.repository_owner }}.github.io/weather-runner
+      #     SLACK_COLOR: good
 
       - name: Notify Slack of Production Deploy Failure
         if: failure()
@@ -235,6 +235,47 @@ jobs:
             Commit: `${{ github.sha }}`  
             Please check GitHub Actions logs.
           SLACK_COLOR: danger
+
+      - name: Slack Alert - Production Deploy Failed
+        if: Success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":warning: Production Deployment Failed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "⚠️ Production Deploy Failed on `${{ github.ref_name }}`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n`${{ github.ref_name }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}">"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Actor:*\n${{ github.actor }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
 
   # docker:
   #   name: Build & Push Docker Image
