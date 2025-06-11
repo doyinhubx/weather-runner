@@ -61,7 +61,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Notify Slack - CI Automated Tests Success
+      - name: Notify Slack of CI Automated Tests Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
@@ -87,10 +87,10 @@ jobs:
       url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
 
     steps:
-      - name: Notify Slack: Awaiting Production Approval
+      - name: Notify Slack of Awaiting Production Approval
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: rtCamp/action-slack-notify@v2
-        with:
+        env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
           SLACK_MESSAGE: |
             🛑 *Production Deployment Pending Approval*  
@@ -137,7 +137,7 @@ jobs:
 
       # Slack Notifications
       #---------------------------------------------------
-      - name: Notify Slack: Production Deploy Success
+      - name: Notify Slack of Production Deploy Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         with:
@@ -150,7 +150,7 @@ jobs:
             URL: https://${{ github.repository_owner }}.github.io/weather-runner
           SLACK_COLOR: good
 
-      - name: Notify Slack: Deploy Failed
+      - name: Notify Slack of Production Deploy Failure
         if: failure()
         uses: rtCamp/action-slack-notify@v2
         env:
@@ -248,7 +248,7 @@ jobs:
           channelId: live  # optional: can use preview channels too (staging-preview)
          
 
-      - name: Notify Slack of Staging Deploy
+      - name: Notify Slack of Staging Deploy Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
