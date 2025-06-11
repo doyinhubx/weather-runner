@@ -61,11 +61,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Slack Notifications
+      #---------------------------------------------------
       # - name: Notify Slack of CI Automated Tests Success
       #   if: success()
       #   uses: rtCamp/action-slack-notify@v2
       #   env:
-      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_GENERAL }}
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
       #     SLACK_MESSAGE: |
       #       ✅ *CI Automated Test Completed*  
       #       Repository: `${{ github.repository }}`  
@@ -74,6 +76,77 @@ jobs:
       #       URL: https://${{ github.repository_owner }}.github.io/weather-runner
       #     SLACK_COLOR: good
 
+
+      # - name: Notify on CI failure
+      #   if: failure()
+      #   uses: slackapi/slack-github-action@v1.24.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": ":x: CI Failed on `${{ github.repository }}`",
+      #         "blocks": [
+      #           {
+      #             "type": "section",
+      #             "text": {
+      #               "type": "mrkdwn",
+      #               "text": "*CI Failure on `${{ github.ref_name }}`*\n\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}\nWorkflow: `${{ github.workflow }}`"
+      #             }
+      #           }
+      #         ]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
+
+
+      # - name: Slack Alert - CI Failure
+      #   if: failure()
+      #   uses: slackapi/slack-github-action@v1.24.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": ":x: CI Failure in `${{ github.repository }}`",
+      #         "blocks": [
+      #           {
+      #             "type": "header",
+      #             "text": {
+      #               "type": "plain_text",
+      #               "text": "🚨 CI Failed on `${{ github.ref_name }}`"
+      #             }
+      #           },
+      #           {
+      #             "type": "section",
+      #             "fields": [
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Repository:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
+      #               },
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Branch:*\n`${{ github.ref_name }}`"
+      #               },
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}">"
+      #               },
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "*Author:*\n${{ github.actor }}"
+      #               }
+      #             ]
+      #           },
+      #           {
+      #             "type": "context",
+      #             "elements": [
+      #               {
+      #                 "type": "mrkdwn",
+      #                 "text": "Workflow: `${{ github.workflow }}` · Job: `${{ github.job }}`"
+      #               }
+      #             ]
+      #           }
+      #         ]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
 
   # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
   #-----------------------------------------------------------------------------
@@ -164,44 +237,44 @@ jobs:
           SLACK_COLOR: danger
 
 
-  docker:
-    name: Build & Push Docker Image
-    needs: production-deploy
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+  # docker:
+  #   name: Build & Push Docker Image
+  #   needs: production-deploy
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Log in to Docker Hub
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: docker.io
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+  #     - name: Log in to GitHub Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GHCR_PAT }}
 
-      # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
-            ghcr.io/${{ github.repository_owner }}/weather-app:latest
-          cache-from: type=gha
-          cache-to: type=gha, mode=max
+  #     # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
+  #     - name: Build and push Docker image
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: .
+  #         push: true
+  #         tags: |
+  #           docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+  #           ghcr.io/${{ github.repository_owner }}/weather-app:latest
+  #         cache-from: type=gha
+  #         cache-to: type=gha, mode=max
 
 
   # Staging Job Deployment to Firebase Hosting
@@ -272,6 +345,47 @@ jobs:
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`
           SLACK_COLOR: danger
+
+      - name: Slack Alert - Staging Deploy Failed
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":warning: Staging Deployment Failed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "⚠️ Staging Deploy Failed on `${{ github.ref_name }}`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n`${{ github.ref_name }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}">"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Actor:*\n${{ github.actor }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   #-----------------------------------------------------------------------------
   # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Artifact Registry, Pulumi and Terraform)
@@ -1033,7 +1147,7 @@ jobs:
   cleanup:
     name: Cleanup
     needs: dev-deploy
-    if: always()
+    if: always() 
     runs-on: ubuntu-latest
     steps:
       - name: Setup Terraform
