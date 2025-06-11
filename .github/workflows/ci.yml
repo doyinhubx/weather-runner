@@ -61,18 +61,18 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Notify Slack: CI Automated Tests Success
-      #   if: success()
-      #   uses: rtCamp/action-slack-notify@v2
-      #   env:
-      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_GENERAL }}
-      #     SLACK_MESSAGE: |
-      #       ✅ *CI Automated Test Completed*  
-      #       Repository: `${{ github.repository }}`  
-      #       Branch: `${{ github.ref_name }}`  
-      #       Commit: `${{ github.sha }}`  
-      #       URL: https://${{ github.repository_owner }}.github.io/weather-runner
-      #     SLACK_COLOR: good
+      - name: Notify Slack - CI Automated Tests Success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_GENERAL }}
+          SLACK_MESSAGE: |
+            ✅ *CI Automated Test Completed*  
+            Repository: `${{ github.repository }}`  
+            Branch: `${{ github.ref_name }}`  
+            Commit: `${{ github.sha }}`  
+            URL: https://${{ github.repository_owner }}.github.io/weather-runner
+          SLACK_COLOR: good
 
 
   # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
@@ -87,11 +87,10 @@ jobs:
       url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
 
     steps:
-
       - name: Notify Slack: Awaiting Production Approval
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: rtCamp/action-slack-notify@v2
-        env:
+        with:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
           SLACK_MESSAGE: |
             🛑 *Production Deployment Pending Approval*  
@@ -141,7 +140,7 @@ jobs:
       - name: Notify Slack: Production Deploy Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
-        env:
+        with:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
           SLACK_MESSAGE: |
             ✅ *Production Deployment Completed*  
