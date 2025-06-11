@@ -245,11 +245,14 @@ jobs:
               "text": ":white_check_mark: Production Deployment Successful",
               "blocks": [
                 {
-                  "type": "header",
+                  "type": "section",
                   "text": {
-                    "type": "plain_text",
-                    "text": "✅ Production Deploy Successful on `${{ github.ref_name }}`"
+                    "type": "mrkdwn",
+                    "text": ":white_check_mark: *Production Deployment Successful*"
                   }
+                },
+                {
+                  "type": "divider"
                 },
                 {
                   "type": "section",
@@ -261,16 +264,28 @@ jobs:
                     {
                       "type": "mrkdwn",
                       "text": "*Branch:*\n`${{ github.ref_name }}`"
-                    },
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${ { github.sha | slice: 0, 7 }}>"
                     },
                     {
                       "type": "mrkdwn",
                       "text": "*Actor:*\n${{ github.actor }}"
                     }
                   ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deployment URL:*\n${{ steps.tf-output.outputs.service_url }}"
+                  }
                 }
               ]
             }
