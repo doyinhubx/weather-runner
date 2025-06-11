@@ -240,40 +240,40 @@ jobs:
         if: success()
         uses: slackapi/slack-github-action@v1.24.0
         with:
-          payload: ${{ toJson(fromJSON(format('
-            {{
+          payload: |
+            {
               "text": ":white_check_mark: Production Deployment Successful",
               "blocks": [
-                {{
+                {
                   "type": "header",
-                  "text": {{
+                  "text": {
                     "type": "plain_text",
-                    "text": "✅ Production Deploy Successful on `{0}`"
-                  }}
-                }},
-                {{
+                    "text": "✅ Production Deploy Successful on `${{ github.ref_name }}`"
+                  }
+                },
+                {
                   "type": "section",
                   "fields": [
-                    {{
+                    {
                       "type": "mrkdwn",
-                      "text": "*Project:*\n<https://github.com/{1}|{1}>"
-                    }},
-                    {{
+                      "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
+                    },
+                    {
                       "type": "mrkdwn",
-                      "text": "*Branch:*\n`{0}`"
-                    }},
-                    {{
+                      "text": "*Branch:*\n`${{ github.ref_name }}`"
+                    },
+                    {
                       "type": "mrkdwn",
-                      "text": "*Commit:*\n<https://github.com/{1}/commit/{2}|{2}>"
-                    }},
-                    {{
+                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                    },
+                    {
                       "type": "mrkdwn",
-                      "text": "*Actor:*\n{3}"
-                    }}
+                      "text": "*Actor:*\n${{ github.actor }}"
+                    }
                   ]
-                }}
+                }
               ]
-            }}', github.ref_name, github.repository, github.sha, github.actor))) }}
+            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
 
