@@ -1113,22 +1113,55 @@ jobs:
 
   # Terraform Post-Deployment Cleanup - to prevent state bloat
   # ------------------------------------------------
+  # cleanup:
+  #   name: Cleanup
+  #   needs: dev-deploy
+  #   if: github.ref == 'refs/heads/dev'
+  #   if: success()
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+        
+  #     - name: Select Workspace
+  #       run: |
+  #         terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+  #         terraform workspace select ${{ github.run_id }}
+  #         terraform workspace delete -force ${{ github.run_id }}
+  #       working-directory: ./terraform/dev/app
+  #       continue-on-error: true
+
+
   cleanup:
-    name: Cleanup
+    name: Cleanup Terraform Workspace
     needs: dev-deploy
-    if: github.ref == 'refs/heads/dev'
-    if: success()
     runs-on: ubuntu-latest
+    # only run on successful dev branch deploys
+    if: ${{ github.ref == 'refs/heads/dev' && success() }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        
-      - name: Select Workspace
-        run: |
-          terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
-          terraform workspace select ${{ github.run_id }}
-          terraform workspace delete -force ${{ github.run_id }}
+
+      - name: Initialize Terraform (Dev workspace)
         working-directory: ./terraform/dev/app
+        run: |
+          terraform init \
+            -backend-config="bucket=weather-app-tfstate-v2" \
+            -backend-config="prefix=app"
+
+      - name: Delete run-specific workspace
+        working-directory: ./terraform/dev/app
+        run: |
+          # if the workspace exists, select & delete it
+          if terraform workspace list | grep -q "${{ github.run_id }}"; then
+            terraform workspace select "${{ github.run_id }}"
+            terraform workspace delete -force "${{ github.run_id }}"
+          else
+            echo "Workspace ${{ github.run_id }} does not exist; nothing to clean up."
+          fi
         continue-on-error: true
 
 
