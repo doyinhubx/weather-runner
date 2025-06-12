@@ -1111,46 +1111,48 @@ jobs:
           SLACK_COLOR: danger
 
 
-  # Terraform Post-Deployment Cleanup - to prevent state bloat
-  #------------------------------------------------
-  # cleanup:
-  #   name: Cleanup
-  #   needs: dev-deploy
-  #   if: always() 
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Setup Terraform
-  #       uses: hashicorp/setup-terraform@v3
-        
-  #     - name: Select Workspace
-  #       run: |
-  #         terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
-  #         terraform workspace select ${{ github.run_id }}
-  #         terraform workspace delete -force ${{ github.run_id }}
-  #       working-directory: ./terraform/dev/app
-  #       continue-on-error: true
-
-
+  Terraform Post-Deployment Cleanup - to prevent state bloat
+  ------------------------------------------------
   cleanup:
     name: Cleanup
     needs: dev-deploy
-    if: always()
+    if: github.ref == 'refs/heads/dev'
+    if: success()
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
-      - name: Select and Delete Workspace
+        
+      - name: Select Workspace
         run: |
-          if [ -d "./terraform/dev/app" ]; then
-            cd ./terraform/dev/app
-            terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
-            terraform workspace select ${{ github.run_id }}
-            terraform workspace delete -force ${{ github.run_id }}
-          else
-            echo "Directory ./terraform/dev/app does not exist. Skipping cleanup."
-          fi
+          terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+          terraform workspace select ${{ github.run_id }}
+          terraform workspace delete -force ${{ github.run_id }}
+        working-directory: ./terraform/dev/app
         continue-on-error: true
+
+
+  # cleanup:
+  #   name: Cleanup
+  #   needs: dev-deploy
+  #   if: github.ref == 'refs/heads/dev'
+  #   if: success()
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+
+  #     - name: Select and Delete Workspace
+  #       run: |
+  #         if [ -d "./terraform/dev/app" ]; then
+  #           cd ./terraform/dev/app
+  #           terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+  #           terraform workspace select ${{ github.run_id }}
+  #           terraform workspace delete -force ${{ github.run_id }}
+  #         else
+  #           echo "Directory ./terraform/dev/app does not exist. Skipping cleanup."
+  #         fi
+  #       continue-on-error: true
