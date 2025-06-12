@@ -1111,8 +1111,8 @@ jobs:
           SLACK_COLOR: danger
 
 
-  Terraform Post-Deployment Cleanup - to prevent state bloat
-  ------------------------------------------------
+  # Terraform Post-Deployment Cleanup - to prevent state bloat
+  # ------------------------------------------------
   cleanup:
     name: Cleanup
     needs: dev-deploy
