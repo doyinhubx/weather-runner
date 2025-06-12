@@ -293,60 +293,12 @@ jobs:
       #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
 
 
-      - name: Slack Alert - Production Deploy Successful
-        if: success()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ":white_check_mark: *Production Deployment Successful*"
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Branch:*\n`${{ github.ref_name }}`"
-                    }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Actor:*\n${{ github.actor }}"
-                    }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Deployment URL:*\n${{ steps.tf-output.outputs.service_url }}"
-                  }
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
+      # --- Notifications ---
+      - name: Send Slack notification (Production)
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": ":rocket: *Dev Deploy Complete*\nRepository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\nCommit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nBranch: dev"}' \
+          ${{ secrets.SLACK_WEBHOOK_PROD }}
 
 
   # docker:
