@@ -61,6 +61,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+
       # Slack Notifications
       #---------------------------------------------------
       # - name: Notify Slack of CI Automated Tests Success
@@ -98,55 +99,29 @@ jobs:
       #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
 
 
-      # - name: Slack Alert - CI Failure
-      #   if: failure()
-      #   uses: slackapi/slack-github-action@v1.24.0
-      #   with:
-      #     payload: |
-      #       {
-      #         "text": ":x: CI Failure in `${{ github.repository }}`",
-      #         "blocks": [
-      #           {
-      #             "type": "header",
-      #             "text": {
-      #               "type": "plain_text",
-      #               "text": "🚨 CI Failed on `${{ github.ref_name }}`"
-      #             }
-      #           },
-      #           {
-      #             "type": "section",
-      #             "fields": [
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Repository:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
-      #               },
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Branch:*\n`${{ github.ref_name }}`"
-      #               },
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}">"
-      #               },
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Author:*\n${{ github.actor }}"
-      #               }
-      #             ]
-      #           },
-      #           {
-      #             "type": "context",
-      #             "elements": [
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "Workflow: `${{ github.workflow }}` · Job: `${{ github.job }}`"
-      #               }
-      #             ]
-      #           }
-      #         ]
-      #       }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
+
+      - name: Notify on CI Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":x: CI Successful on `${{ github.repository }}`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*CI Successful on `${{ github.ref_name }}`*\n\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}\nWorkflow: `${{ github.workflow }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
+
+
+
 
   # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
   #-----------------------------------------------------------------------------
@@ -172,6 +147,22 @@ jobs:
             Commit: `${{ github.sha }}`  
             Please approve in GitHub Environments → Production.
           SLACK_COLOR: warning
+
+
+      - name: Notify Discord of Awaiting Production Approval
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "🛑 Production Deployment Pending Approval",
+                "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\n🔒 Please approve this deployment via **GitHub → Environments → Production**.",
+                "color": 16753920
+              }]
+            }' $DISCORD_WEBHOOK
 
       - name: Checkout code
         uses: actions/checkout@v3
@@ -210,18 +201,18 @@ jobs:
 
       # Slack Notifications
       #---------------------------------------------------
-      # - name: Notify Slack of Production Deploy Success
-      #   if: success()
-      #   uses: rtCamp/action-slack-notify@v2
-      #   env:
-      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
-      #     SLACK_MESSAGE: |
-      #       ✅ *Production Deployment Completed*  
-      #       Repository: `${{ github.repository }}`  
-      #       Branch: `${{ github.ref_name }}`  
-      #       Commit: `${{ github.sha }}`  
-      #       URL: https://${{ github.repository_owner }}.github.io/weather-runner
-      #     SLACK_COLOR: good
+      - name: Notify Slack of Production Deploy Success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+          SLACK_MESSAGE: |
+            ✅ *Production Deployment Completed*  
+            Repository: `${{ github.repository }}`  
+            Branch: `${{ github.ref_name }}`  
+            Commit: `${{ github.sha }}`  
+            URL: https://${{ github.repository_owner }}.github.io/weather-runner
+          SLACK_COLOR: good
 
       - name: Notify Slack of Production Deploy Failure
         if: failure()
@@ -236,69 +227,44 @@ jobs:
             Please check GitHub Actions logs.
           SLACK_COLOR: danger
 
-      # - name: Slack Alert - Production Deploy Successful
-      #   if: success()
-      #   uses: slackapi/slack-github-action@v1.24.0
-      #   with:
-      #     payload: |
-      #       {
-      #         "text": ":white_check_mark: Production Deployment Successful",
-      #         "blocks": [
-      #           {
-      #             "type": "section",
-      #             "text": {
-      #               "type": "mrkdwn",
-      #               "text": ":white_check_mark: *Production Deployment Successful*"
-      #             }
-      #           },
-      #           {
-      #             "type": "divider"
-      #           },
-      #           {
-      #             "type": "section",
-      #             "fields": [
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
-      #               },
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Branch:*\n`${{ github.ref_name }}`"
-      #               }
-      #             ]
-      #           },
-      #           {
-      #             "type": "section",
-      #             "fields": [
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${ { github.sha | slice: 0, 7 }}>"
-      #               },
-      #               {
-      #                 "type": "mrkdwn",
-      #                 "text": "*Actor:*\n${{ github.actor }}"
-      #               }
-      #             ]
-      #           },
-      #           {
-      #             "type": "section",
-      #             "text": {
-      #               "type": "mrkdwn",
-      #               "text": "*Deployment URL:*\n${{ steps.tf-output.outputs.service_url }}"
-      #             }
-      #           }
-      #         ]
-      #       }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
-
-
-      # --- Notifications ---
       - name: Send Slack notification (Production)
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": ":rocket: *Dev Deploy Complete*\nRepository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\nCommit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nBranch: dev"}' \
+          --data '{"text": ":rocket: *Prod Deploy Complete*\nRepository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\nCommit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nBranch: production"}' \
           ${{ secrets.SLACK_WEBHOOK_PROD }}
+
+
+      # Discord Notifications
+      #--------------------------------------------------
+      - name: Notify Discord of Production Deploy Success
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "✅ Production Deployment Completed",
+                "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n**URL:** https://${{ github.repository_owner }}.github.io/weather-runner",
+                "color": 65280
+              }]
+            }' $DISCORD_WEBHOOK
+
+      - name: Notify Discord of Production Deploy Failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "❌ Production Deployment Failed",
+                "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\nPlease check the GitHub Actions logs for details.",
+                "color": 16711680
+              }]
+            }' $DISCORD_WEBHOOK
 
 
   # docker:
@@ -410,47 +376,7 @@ jobs:
             Commit: `${{ github.sha }}`
           SLACK_COLOR: danger
 
-      - name: Slack Alert - Staging Deploy Failed
-        if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "text": ":warning: Staging Deployment Failed",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "⚠️ Staging Deploy Failed on `${{ github.ref_name }}`"
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Project:*\n<https://github.com/${{ github.repository }}|${{ github.repository }}>"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Branch:*\n`${{ github.ref_name }}`"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Commit:*\n<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}">"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Actor:*\n${{ github.actor }}"
-                    }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
+      
   #-----------------------------------------------------------------------------
   # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Artifact Registry, Pulumi and Terraform)
   #-----------------------------------------------------------------------------
@@ -1208,19 +1134,44 @@ jobs:
 
   # Terraform Post-Deployment Cleanup - to prevent state bloat
   #------------------------------------------------
+  # cleanup:
+  #   name: Cleanup
+  #   needs: dev-deploy
+  #   if: always() 
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+        
+  #     - name: Select Workspace
+  #       run: |
+  #         terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+  #         terraform workspace select ${{ github.run_id }}
+  #         terraform workspace delete -force ${{ github.run_id }}
+  #       working-directory: ./terraform/dev/app
+  #       continue-on-error: true
+
+
   cleanup:
     name: Cleanup
     needs: dev-deploy
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        
-      - name: Select Workspace
+
+      - name: Select and Delete Workspace
         run: |
-          terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
-          terraform workspace select ${{ github.run_id }}
-          terraform workspace delete -force ${{ github.run_id }}
-        working-directory: ./terraform/dev/app
+          if [ -d "./terraform/dev/app" ]; then
+            cd ./terraform/dev/app
+            terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+            terraform workspace select ${{ github.run_id }}
+            terraform workspace delete -force ${{ github.run_id }}
+          else
+            echo "Directory ./terraform/dev/app does not exist. Skipping cleanup."
+          fi
         continue-on-error: true
