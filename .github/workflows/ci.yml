@@ -106,7 +106,7 @@ jobs:
         with:
           payload: |
             {
-              "text": ":x: CI Successful on `${{ github.repository }}`",
+              "text": ":white_check_mark: CI Successful on `${{ github.repository }}`",
               "blocks": [
                 {
                   "type": "section",
@@ -119,6 +119,7 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }}
+
 
 
 
