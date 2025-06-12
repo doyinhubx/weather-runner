@@ -78,47 +78,25 @@ jobs:
       #     SLACK_COLOR: good
 
 
-      # - name: Notify on CI failure
-      #   if: failure()
-      #   uses: slackapi/slack-github-action@v1.24.0
-      #   with:
-      #     payload: |
-      #       {
-      #         "text": ":x: CI Failed on `${{ github.repository }}`",
-      #         "blocks": [
-      #           {
-      #             "type": "section",
-      #             "text": {
-      #               "type": "mrkdwn",
-      #               "text": "*CI Failure on `${{ github.ref_name }}`*\n\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}\nWorkflow: `${{ github.workflow }}`"
-      #             }
-      #           }
-      #         ]
-      #       }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
-
-
-
-      # - name: Notify on CI Success
-      #   if: success()
-      #   uses: slackapi/slack-github-action@v1.24.0
-      #   with:
-      #     payload: |
-      #       {
-      #         "text": ":white_check_mark: CI Successful on `${{ github.repository }}`",
-      #         "blocks": [
-      #           {
-      #             "type": "section",
-      #             "text": {
-      #               "type": "mrkdwn",
-      #               "text": "*CI Successful on `${{ github.ref_name }}`*\n\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}\nWorkflow: `${{ github.workflow }}`"
-      #             }
-      #           }
-      #         ]
-      #       }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }}
+      - name: Notify on CI Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":white_check_mark: CI Successful on `${{ github.repository }}`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*CI Successful on `${{ github.ref_name }}`*\n\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}\nWorkflow: `${{ github.workflow }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
 
 
 
