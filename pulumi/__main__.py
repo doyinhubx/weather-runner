@@ -34,9 +34,6 @@ gcp_provider = gcp.Provider(
     opts=ResourceOptions(ignore_changes=["project"])
 )
 
-# Add at the top of your Pulumi code
-admin_sa_email = "admin-account-sa@weather-app2-460914.gserviceaccount.com"  
-
 
 # STAGE 1: Enable required APIs 
 #-------------------------------------------------------------------
@@ -76,13 +73,13 @@ required_roles = [
     ("serviceusage-admin", "roles/serviceusage.serviceUsageAdmin"),
     ("artifactregistry-admin", "roles/artifactregistry.admin"),
     ("artifactregistry-writer", "roles/artifactregistry.writer"),  
-    ("run-admin", "roles/run.admin"),
-    ("sa-user", "roles/iam.serviceAccountUser"),
+    ("run-admin", "roles/run.admin"), # For deploying and managing Cloud Run services
+    ("sa-user", "roles/iam.serviceAccountUser"), # To allow impersonation of service accounts (especially if CI/CD uses this SA)
     ("sa-token-creator", "roles/iam.serviceAccountTokenCreator"), 
     ("cloudbuild-editor", "roles/cloudbuild.builds.editor"),
     ("resourcemanager-projectIamAdmin", "roles/resourcemanager.projectIamAdmin"),
     ("storage-object-admin", "roles/storage.objectAdmin"),
-    ("artifactregistry-reader", "roles/artifactregistry.reader"),
+    ("artifactregistry-reader", "roles/artifactregistry.reader"), # For pushing container images to Artifact Registry
 	("project-viewer", "roles/viewer"),
 	("run-viewer", "roles/run.viewer"),  
 ]
@@ -99,6 +96,9 @@ for role_name, role in required_roles:
     )
     iam_grants.append(grant)
 
+# Ensure API enablement depends on IAM roles (to avoid race conditions)
+for api in enabled_apis:
+    api.opts.depends_on = iam_grants
 
 # STAGE 4: Configure Artifact Registry - DEPENDS ON ENABLED APIS
 #-------------------------------------------------------------------
@@ -233,3 +233,5 @@ pulumi.export("docker_image_url", image_url)
 pulumi.export("service_account_email", cloud_run_sa.email)
 pulumi.export("artifact_registry_url", repo.name)
 
+# Add at the top of your Pulumi code
+#admin_sa_email = "admin-account-sa@weather-app2-460914.gserviceaccount.com"  

@@ -1126,24 +1126,6 @@ jobs:
 
   # # Terraform Post-Deployment Cleanup - to prevent state bloat
   # # ------------------------------------------------
-  # cleanup:
-  #   name: Cleanup
-  #   needs: dev-deploy
-  #   if: ${{ github.ref == 'refs/heads/dev' && success() }}
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Setup Terraform
-  #       uses: hashicorp/setup-terraform@v3
-        
-  #     - name: Select Workspace
-  #       run: |
-  #         terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
-  #         terraform workspace select ${{ github.run_id }}
-  #         terraform workspace delete -force ${{ github.run_id }}
-  #       working-directory: ./terraform/dev/app
-  #       continue-on-error: true
-
-
   cleanup:
     name: Cleanup Terraform Workspace
     needs: dev-deploy
@@ -1177,4 +1159,19 @@ jobs:
         continue-on-error: true
 
 
-  
+  # cleanup:
+  #   name: Cleanup
+  #   needs: dev-deploy
+  #   if: ${{ github.ref == 'refs/heads/dev' && success() }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+        
+  #     - name: Select Workspace
+  #       run: |
+  #         terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+  #         terraform workspace select ${{ github.run_id }}
+  #         terraform workspace delete -force ${{ github.run_id }}
+  #       working-directory: ./terraform/dev/app
+  #       continue-on-error: true

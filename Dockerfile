@@ -1,26 +1,31 @@
-# Use a lightweight NGINX base image
-FROM node:20-alpine
+# Stage 1: Build the app using Node
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Copy only package files first for better caching
+# Copy and install only production dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy the rest of the project
+# Copy the rest of the files and build
 COPY . .
-
-# Build the app
 RUN npm run build
 
-# Install a simple static server
+# Stage 2: Serve with minimal runtime
+FROM node:20-alpine AS runtime
+
+# Install only `serve` globally
 RUN npm install -g serve
 
-# Expose the port
+# Set working directory
+WORKDIR /app
+
+# Copy built static files from builder stage
+COPY --from=builder /app/public ./public
+
+# Expose port
 EXPOSE 8080
 
-# Serve the built app
+# Serve built app
 CMD ["serve", "-s", "public", "-l", "8080"]
