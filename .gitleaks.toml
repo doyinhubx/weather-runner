@@ -1,11 +1,9 @@
-title = "Security Scan Configuration"
-
-# Load default rules PLUS your custom rules
-load-default = true
+title = "Security Rules"
+load-default = true  # 👈 Keeps built-in rules
 
 [[rules]]
-id = "generic-api-key"
-description = "Generic API Key"
+id = "custom-api-key"  # Required field
+description = "Custom API Key Pattern"
 regex = '''(?i)(?:key|api|token|secret)[\s:=]+([a-z0-9\-_]{20,})'''
 tags = ["key", "api-key"]
-entropy = 3.5
+entropy = 3.5  # Reduces false positives
