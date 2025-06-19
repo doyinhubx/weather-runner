@@ -123,6 +123,43 @@
 # affinity: {}
 
 
+# replicaCount: 1
+
+# image:
+#   repository: weather-app
+#   tag: local
+#   pullPolicy: IfNotPresent
+
+# service:
+#   type: NodePort
+#   port: 80
+#   nodePort: null
+
+# ingress:
+#   enabled: true
+#   className: nginx
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+#   hosts:
+#     - host: weather.local
+#       paths:
+#         - path: /
+#           pathType: Prefix
+#   tls: []
+
+# resources: {}
+
+# serviceAccount:
+#   create: false
+#   name: ""
+
+# autoscaling:
+#   enabled: false
+
+# containerPort: 8080
+
+
+
 replicaCount: 1
 
 image:
@@ -140,12 +177,16 @@ ingress:
   className: nginx
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: selfsigned-cluster-issuer
   hosts:
     - host: weather.local
       paths:
         - path: /
           pathType: Prefix
-  tls: []
+  tls:
+    - hosts:
+        - weather.local
+      secretName: weather-local-tls
 
 resources: {}
 
@@ -157,3 +198,5 @@ autoscaling:
   enabled: false
 
 containerPort: 8080
+
+
