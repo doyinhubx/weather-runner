@@ -1,5 +1,8 @@
 title = "gitleaks config"
+
 [[rules]]
+id = "generic-api-key"  # REQUIRED field that was missing
 description = "Generic API Key"
 regex = '''(?i)(?:key|api|token|secret)[\s:=]+([a-z0-9\-_]{20,})'''
 tags = ["key", "api-key"]
+entropy = 3.5  # Recommended to add entropy filter
