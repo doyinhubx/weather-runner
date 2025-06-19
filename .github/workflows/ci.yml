@@ -57,14 +57,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Get full git history
+          fetch-depth: 0  # Required for full commit history
 
-      - name: Run GitLeaks
+      - name: Run GitLeaks (Minimal Config)
         uses: gitleaks/gitleaks-action@v2
         env:
-          # Only 2 environment variables needed:
-          GITLEAKS_CONFIG: .gitleaks.toml  # Path to config
-          GITLEAKS_ARGS: --redact --verbose --log-opts=-1
+          # Disable artifact upload completely
+          GITLEAKS_DISABLE_ARTIFACT: "true"
+          # Path to config
+          GITLEAKS_CONFIG: .gitleaks.toml  
+          # Optional: Add custom args if needed
+          GITLEAKS_ARGS: "--redact --verbose --log-opts=-1"
 
 
       # 🛡️ Security: Audit Dependencies
@@ -79,12 +82,12 @@ jobs:
 
       # 🔐 CodeQL - Static Analysis
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: javascript
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
 
       # # 📊 SonarQube Scan
       # - name: SonarQube Scan
