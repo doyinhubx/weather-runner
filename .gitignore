@@ -46,14 +46,47 @@ Thumbs.db
 # Frontend
 frontend/
 
-#Terraform
+# Terraform
 .terraform/
-.tfstate
-.tfstate.backup
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
-#Pulumi
+# Pulumi
 .pulumi/
 pulumi/venv*
-
-
+Pulumi.dev.yaml
+Pulumi.yaml
+Pulumi.*.yaml
 *.key
+
+# Kubernetes
+*.yaml~       # temp files
+*.yml~        # temp files
+.kube/
+*.kubeconfig
+kubeconfig
+*.tmp.yaml
+*.bak.yaml
+
+# Helm
+charts/
+Chart.lock
+*.tgz
+helm-release.yaml
+.values.yaml
+values.override.yaml
+
+# Argo CD
+.manifests/
+argo-cd/
+argocd/
+argocd-app.yaml
+applicationsets/
+argocd-install.yaml
+*.argocd.yaml
