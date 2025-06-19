@@ -62,8 +62,8 @@ jobs:
       - name: Scan for secrets with Gitleaks
         uses: gitleaks/gitleaks-action@v2
         with:
-        # Scan only the latest commit (no range)
-        extra-args: --log-opts="-1"
+          # Scan only the latest commit (no range)
+          extra-args: --log-opts="-1"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
