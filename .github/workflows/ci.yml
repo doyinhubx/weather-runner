@@ -54,21 +54,21 @@ jobs:
         run: npm test -- --ci --reporters=default --coverage
 
       # 🚨 Gitleaks - Secrets Scanner
-      - name: Checkout full Git history
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Get full git history
 
       - name: Run GitLeaks
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITLEAKS_CONFIG: .gitleaks.toml  # Correct way to specify config path
+          GITLEAKS_CONFIG: .gitleaks.toml  # Path to your config
         with:
-          # Minimal required configuration
-          no-git: false
-          verbose: true
-          redact: true
-          log-opts: -1
+          # This is the ONLY supported input for v2
+          config-path: .gitleaks.toml
+          
+          # For additional arguments, use environment variables:
+          GITLEAKS_ARGS: --redact --verbose --log-opts=-1 --report-format=sarif --report-path=gitleaks-results-$(date +%s).sarif
 
 
       # 🛡️ Security: Audit Dependencies
