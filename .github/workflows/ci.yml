@@ -66,9 +66,10 @@ jobs:
           ./gitleaks/gitleaks detect --redact --verbose --log-opts=-1 --report-format sarif --report-path results.sarif --config .gitleaks.toml
 
       # 🛡️ Security: Audit Dependencies
-      - name: Run tests with coverage
-        run: npm test -- --ci --reporters=default --coverage
+      - name: Run npm audit
+        run: npm audit --audit-level=high
 
+      # ✅ Upload to Coveralls
       - name: Debug coverage file
         run: ls -R coverage
 
