@@ -161,10 +161,10 @@
 
 
 replicaCount: 1
-
+  
 image:
-  repository: weather-app
-  tag: local
+  repository: ghcr.io/doyinhubx/weather-runner
+  tag: latest
   pullPolicy: IfNotPresent
 
 service:
