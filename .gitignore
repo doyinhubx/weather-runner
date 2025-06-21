@@ -90,3 +90,15 @@ argocd-app.yaml
 applicationsets/
 argocd-install.yaml
 *.argocd.yaml
+
+# Archive
+archive/
+
+# k8s
+default-k8s-environments/
+
+# helms-k8s-environments
+helms-k8s-environments/
+
+# argo-k8s-environments
+argo-k8s-environments/

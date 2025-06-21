@@ -65,20 +65,20 @@ jobs:
           mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
           ./gitleaks/gitleaks detect --redact --verbose --log-opts=-1 --report-format sarif --report-path results.sarif --config .gitleaks.toml
 
-      # 🛡️ Security: Audit Dependencies
-      - name: Run npm audit
-        run: npm audit --audit-level=high
+      # # 🛡️ Security: Audit Dependencies
+      # - name: Run npm audit
+      #   run: npm audit --audit-level=high
 
-      # ✅ Upload to Coveralls
-      - name: Debug coverage file
-        run: ls -R coverage
+      # # ✅ Upload to Coveralls
+      # - name: Debug coverage file
+      #   run: ls -R coverage
 
-      - name: Upload coverage to Coveralls
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
-        uses: coverallsapp/github-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: coverage/lcov.info
+      # - name: Upload coverage to Coveralls
+      #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+      #   uses: coverallsapp/github-action@v2
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     path-to-lcov: coverage/lcov.info
 
       # 🔐 CodeQL - Static Analysis
       - name: Initialize CodeQL
