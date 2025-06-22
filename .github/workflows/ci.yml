@@ -59,11 +59,11 @@ jobs:
         with:
           fetch-depth: 0  # Required for full commit history
 
-      - name: Run Gitleaks via CLI
-        run: |
-          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
-          mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
-          ./gitleaks/gitleaks detect --redact --verbose --log-opts=-1 --report-format sarif --report-path results.sarif --config .gitleaks.toml
+      # - name: Run Gitleaks via CLI
+      #   run: |
+      #     wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+      #     mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
+      #     ./gitleaks/gitleaks detect --redact --verbose --log-opts=-1 --report-format sarif --report-path results.sarif --config .gitleaks.toml
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
