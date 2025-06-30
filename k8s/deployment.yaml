@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: weather-container
-          image: eslintpurity/weather-app:optimized
+          image: eslintpurity/weather-app:f0c4a21
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
