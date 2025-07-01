@@ -7,7 +7,7 @@ on:
       - 'k8s/staging/**'
       - 'k8s/prod/**'
       - 'Dockerfile'
-      - '.github/workflows/gitops-deploy.yml'
+      - '.github/workflows/argo-env-gitops-deploy.yml'
     branches:
       - main
 
