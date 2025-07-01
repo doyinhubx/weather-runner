@@ -1,0 +1,66 @@
+name: GitOps Deploy (Folder-Based)
+
+on:
+  push:
+    paths:
+      - 'k8s/dev/**'
+      - 'k8s/staging/**'
+      - 'k8s/prod/**'
+      - 'Dockerfile'
+      - '.github/workflows/gitops-deploy.yml'
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: eslintpurity/weather-app
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Determine environment
+      id: env
+      run: |
+        if [[ "${{ github.event.head_commit.message }}" == *"[dev]"* ]]; then
+          echo "env=dev" >> $GITHUB_OUTPUT
+          echo "tag=dev" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event.head_commit.message }}" == *"[staging]"* ]]; then
+          echo "env=staging" >> $GITHUB_OUTPUT
+          echo "tag=staging" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event.head_commit.message }}" == *"[prod]"* ]]; then
+          echo "env=prod" >> $GITHUB_OUTPUT
+          echo "tag=1.0.0" >> $GITHUB_OUTPUT
+        else
+          echo "No valid [env] tag found in commit message."
+          exit 1
+        fi
+
+    - name: Build and push image
+      run: |
+        docker build -t $IMAGE_NAME:${{ steps.env.outputs.tag }} .
+        docker push $IMAGE_NAME:${{ steps.env.outputs.tag }}
+
+    - name: Update deployment.yaml image tag
+      run: |
+        sed -i "s|image: .*$|image: $IMAGE_NAME:${{ steps.env.outputs.tag }}|" k8s/${{ steps.env.outputs.env }}/deployment.yaml
+
+    - name: Commit and push updated deployment
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add k8s/${{ steps.env.outputs.env }}/deployment.yaml
+        git commit -m "chore(${{
+          steps.env.outputs.env }}): update image tag to ${{ steps.env.outputs.tag }}"
+        git push
