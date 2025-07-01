@@ -128,7 +128,7 @@ replicaCount: 1
 
 image:
   repository: eslintpurity/weather-app
-  tag: 1.0.0
+  tag: main-helms
   pullPolicy: Always
 
 service:
