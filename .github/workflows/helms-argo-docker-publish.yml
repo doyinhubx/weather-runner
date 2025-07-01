@@ -1,27 +1,19 @@
-name: Build & Push Docker Image
+name: Build and Deploy to Kubernetes via Helms and ArgoCD
 
 on:
   push:
-    branches: [main, dev, staging]
+    branches: [main]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
-    env:
-      REGISTRY: docker.io
-      IMAGE_NAME: eslintpurity/weather-app
-
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set image tag from branch
-        id: set_tag
-        run: |
-          BRANCH=$(echo "${GITHUB_REF#refs/heads/}")
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
-          echo "tag=${BRANCH}-helms" >> $GITHUB_OUTPUT
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -29,10 +21,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image
-        run: |
-          docker build -t $REGISTRY/${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.tag }} .
+      - name: Extract Image Tag (short SHA with helm suffix)
+        id: vars
+        run: echo "tag=eslintpurity/weather-app:${GITHUB_SHA::7}-helm" >> $GITHUB_OUTPUT
 
-      - name: Push Docker image
+      - name: Build & Push Docker Image
         run: |
-          docker push $REGISTRY/${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.tag }}
+          docker build -t ${{ steps.vars.outputs.tag }} .
+          docker push ${{ steps.vars.outputs.tag }}
+
+      - name: Update Helm values.yaml with new image tag
+        run: |
+          sed -i "s|tag:.*|tag: ${GITHUB_SHA::7}-helm|" weather-app-helms/values.yaml
+
+      - name: Commit and Push Updated Helm values.yaml
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+        run: |
+          git config user.name "$GIT_USER_NAME"
+          git config user.email "$GIT_USER_EMAIL"
+          git add weather-app-helms/values.yaml
+          git commit -m "ci: update image tag to ${{ steps.vars.outputs.tag }}"
+          git push https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} HEAD:main
