@@ -29,19 +29,27 @@ jobs:
       - name: Extract tag (short SHA + env)
         id: vars
         run: |
-          ENV_SUFFIX="${GITHUB_REF##*/}"
-          TAG=${GITHUB_SHA::7}-helms-${ENV_SUFFIX}
+          BRANCH="${GITHUB_REF##*/}"
+          case "$BRANCH" in
+            main) ENV=prod ;;
+            staging) ENV=staging ;;
+            dev) ENV=dev ;;
+            *) echo "Unsupported branch"; exit 1 ;;
+          esac
+          TAG=${GITHUB_SHA::7}-helms-${ENV}
           echo "tag=${{ env.IMAGE_NAME }}:$TAG" >> $GITHUB_OUTPUT
           echo "short_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "env_dir=$ENV" >> $GITHUB_OUTPUT
 
       - name: Build & Push Docker Image
         run: |
           docker build -t ${{ steps.vars.outputs.tag }} .
           docker push ${{ steps.vars.outputs.tag }}
 
+
       - name: Update Helm values.yaml with new image tag
         run: |
-          sed -i "s|^  tag: .*|  tag: \"${{ steps.vars.outputs.short_tag }}\"|" k8s/helm/environments/${{ github.ref_name }}/values.yaml
+          sed -i "s|^  tag: .*|  tag: \"${{ steps.vars.outputs.short_tag }}\"|" k8s/helm/environments/${{ steps.vars.outputs.env_dir }}/values.yaml
 
       - name: Commit and Push Updated values.yaml
         env:
@@ -51,6 +59,6 @@ jobs:
         run: |
           git config user.name "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
-          git add k8s/helm/environments/${{ github.ref_name }}/values.yaml
+          git add k8s/helm/environments/${{ steps.vars.outputs.env_dir }}/values.yaml
           git commit -m "ci(${GITHUB_REF##*/}): update image tag to ${{ steps.vars.outputs.short_tag }}"
           git push https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
