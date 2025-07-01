@@ -1,0 +1,12 @@
+# k8s/helm/environments/dev/values.yaml
+image:
+  repository: eslintpurity/weather-app
+  tag: dev-helms
+  pullPolicy: Always
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+ingress:
+  enabled: true
+  hostname: dev-helm-weather-local

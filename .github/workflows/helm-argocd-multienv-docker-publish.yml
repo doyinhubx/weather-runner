@@ -1,12 +1,17 @@
-name: Build and Deploy to Kubernetes via Helms and ArgoCD
+name: Multi-Env Helms and ArgoCD Image Publish
 
 on:
   push:
-    branches: [main]
+    branches:
+      - dev
+      - staging
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: eslintpurity/weather-app
 
     steps:
       - name: Checkout Code
@@ -21,9 +26,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract Image Tag (short SHA with helm suffix)
+      - name: Extract tag (short SHA + env)
         id: vars
-        run: echo "tag=eslintpurity/weather-app:${GITHUB_SHA::7}-helm" >> $GITHUB_OUTPUT
+        run: |
+          ENV_SUFFIX="${GITHUB_REF##*/}"
+          TAG=${GITHUB_SHA::7}-helms-${ENV_SUFFIX}
+          echo "tag=${{ env.IMAGE_NAME }}:$TAG" >> $GITHUB_OUTPUT
+          echo "short_tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Build & Push Docker Image
         run: |
@@ -32,9 +41,9 @@ jobs:
 
       - name: Update Helm values.yaml with new image tag
         run: |
-          sed -i "s|tag:.*|tag: ${GITHUB_SHA::7}-helm|" weather-app-helms/values.yaml
+          sed -i "s|^  tag: .*|  tag: \"${{ steps.vars.outputs.short_tag }}\"|" k8s/helm/environments/${{ github.ref_name }}/values.yaml
 
-      - name: Commit and Push Updated Helm values.yaml
+      - name: Commit and Push Updated values.yaml
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
@@ -42,6 +51,6 @@ jobs:
         run: |
           git config user.name "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
-          git add weather-app-helms/values.yaml
-          git commit -m "ci: update image tag to ${{ steps.vars.outputs.tag }}"
-          git push https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} HEAD:main
+          git add k8s/helm/environments/${{ github.ref_name }}/values.yaml
+          git commit -m "ci(${GITHUB_REF##*/}): update image tag to ${{ steps.vars.outputs.short_tag }}"
+          git push https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}

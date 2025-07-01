@@ -1,0 +1,22 @@
+# k8s/argocd-apps/weather-app-helm-staging.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: weather-app-helm-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/doyinhubx/weather-runner.git
+    targetRevision: staging
+    path: weather-app-helms
+    helm:
+      valueFiles:
+        - ../../k8s/helm/environments/staging/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging-helm
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true

@@ -128,8 +128,8 @@ replicaCount: 1
 
 image:
   repository: eslintpurity/weather-app
-  tag: 9428bbc-helm
-  pullPolicy: Always
+  tag: main-helms
+  pullPolicy: IfNotPresent
 
 service:
   type: ClusterIP

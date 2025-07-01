@@ -1,0 +1,12 @@
+# k8s/helm/environments/staging/values.yaml
+image:
+  repository: eslintpurity/weather-app
+  tag: staging-helms
+  pullPolicy: Always
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+ingress:
+  enabled: true
+  hostname: staging-helm-weather-local
