@@ -49,7 +49,7 @@ jobs:
 
       - name: Update Helm values.yaml with new image tag
         run: |
-          sed -i "s|^  tag: .*|  tag: \"${{ steps.vars.outputs.short_tag }}\"|" k8s/helm/environments/${{ steps.vars.outputs.env_dir }}/values.yaml
+          sed -i "s|^  tag: .*|  tag: \"${{ steps.vars.outputs.short_tag }}\"|" weather-app-helms/environments/${{ steps.vars.outputs.env_dir }}/values.yaml
 
       - name: Commit and Push Updated values.yaml
         env:
