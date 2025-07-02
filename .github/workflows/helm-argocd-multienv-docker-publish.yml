@@ -59,6 +59,6 @@ jobs:
         run: |
           git config user.name "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
-          git add k8s/helm/environments/${{ steps.vars.outputs.env_dir }}/values.yaml
+          git add weather-app-helms/environments/${{ steps.vars.outputs.env_dir }}/values.yaml
           git commit -m "ci(${GITHUB_REF##*/}): update image tag to ${{ steps.vars.outputs.short_tag }}"
           git push https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
