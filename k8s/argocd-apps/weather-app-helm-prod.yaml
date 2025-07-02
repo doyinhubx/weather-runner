@@ -12,7 +12,7 @@ spec:
     path: weather-app-helms
     helm:
       valueFiles:
-        - ../../k8s/helm/environments/prod/values.yaml
+        - environments/prod/values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: prod-helm
