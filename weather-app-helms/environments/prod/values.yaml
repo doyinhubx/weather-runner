@@ -1,7 +1,7 @@
 # k8s/helm/environments/prod/values.yaml
 image:
   repository: eslintpurity/weather-app
-  tag: "38f0b39-helms-prod"
+  tag: "8b7a97e-helms-prod"
   pullPolicy: Always
 service:
   type: ClusterIP
