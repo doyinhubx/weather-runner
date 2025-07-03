@@ -9,10 +9,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - old.weather.local
+        - weather.local
       secretName: weather-local-tls
   rules:
-    - host: old.weather.local
+    - host: weather.local
       http:
         paths:
           - path: /

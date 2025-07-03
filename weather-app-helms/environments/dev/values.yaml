@@ -9,4 +9,4 @@ service:
   targetPort: 8080
 ingress:
   enabled: true
-  hostname: dev-helm-weather-local
+  hostname: dev.helm-weather.local

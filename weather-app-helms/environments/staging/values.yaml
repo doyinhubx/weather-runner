@@ -9,4 +9,4 @@ service:
   targetPort: 8080
 ingress:
   enabled: true
-  hostname: staging-helm-weather-local
+  hostname: staging.helm-weather.local

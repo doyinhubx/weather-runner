@@ -142,7 +142,7 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: helms-weather-local
+    - host: helm.weather.local
       paths:
         - path: /
           pathType: Prefix
