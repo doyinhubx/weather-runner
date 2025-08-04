@@ -71,7 +71,7 @@
 # 3. Uncommitted Changes & Safety Checks + Smart Auto-Stashing
 #----------------------------------------------------------------
 # Define your branches
-FEATURE_BRANCH=feature/ci-cd-enhancements
+FEATURE_BRANCH = feature/ci-cd-enhancements
 STAGING_BRANCH ?= staging
 MAIN_BRANCH ?= main
 
@@ -84,11 +84,10 @@ CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
 check-dirty:
 	@echo "🔍 Checking for uncommitted changes..."
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
-		echo "❌ Working directory is dirty. Please commit or stash your changes before deploying."; \
-		git status --short; \
-		exit 1; \
+		echo "⚠️  Uncommitted changes found. Stashing..."; \
+		git stash push -u -m "Auto-stash before deploy-staging"; \
 	else \
-		echo "✅ Working tree is clean."; \
+		echo "✅ Working tree clean."; \
 	fi
 
 deploy-staging:
@@ -97,13 +96,11 @@ deploy-staging:
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
 		git checkout $(STAGING_BRANCH); \
-		git pull origin $(STAGING_BRANCH); \
 		git merge $(CURRENT_BRANCH); \
 		git push origin $(STAGING_BRANCH); \
 		git checkout $(CURRENT_BRANCH); \
 	else \
-		echo "✅ Already on $(STAGING_BRANCH). Pulling latest and pushing..."; \
-		git pull origin $(STAGING_BRANCH); \
+		echo "✅ Already on $(STAGING_BRANCH). Just pushing changes..."; \
 		git push origin $(STAGING_BRANCH); \
 	fi
 	@echo "✅ Staging deploy triggered via GitHub Actions."
@@ -114,13 +111,11 @@ deploy-prod:
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
 		git checkout $(STAGING_BRANCH); \
-		git pull origin $(STAGING_BRANCH); \
 		git merge $(CURRENT_BRANCH); \
 		git push origin $(STAGING_BRANCH); \
 	fi
 	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
 	@git checkout $(MAIN_BRANCH)
-	@git pull origin $(MAIN_BRANCH)
 	@git merge $(STAGING_BRANCH)
 	@git push origin $(MAIN_BRANCH)
 	@git checkout $(CURRENT_BRANCH)
