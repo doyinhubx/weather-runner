@@ -81,17 +81,29 @@ CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
 .PHONY: deploy-staging deploy-prod check-dirty
 
 # Safety check: prevent deploy with uncommitted changes
+# check-dirty:
+# 	@echo "🔍 Checking for uncommitted changes..."
+# 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+# 		echo "⚠️  Uncommitted changes found. Stashing..."; \
+# 		git stash push -u -m "Auto-stash before deploy"; \
+# 		echo "💾 Changes stashed."; \
+# 		echo "NOTE: They will be popped back after deploy."; \
+# 	else \
+# 		echo "✅ Working tree clean."; \
+# 	fi
+
+
 check-dirty:
 	@echo "🔍 Checking for uncommitted changes..."
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
-		echo "⚠️  Uncommitted changes found. Stashing..."; \
-		git stash push -u -m "Auto-stash before deploy"; \
-		echo "💾 Changes stashed."; \
-		echo "NOTE: They will be popped back after deploy."; \
+		echo "📦 Uncommitted changes found. Committing them..."; \
+		git add .; \
+		git commit -m "🔧 Auto-commit before deploy from $(CURRENT_BRANCH)"; \
 	else \
 		echo "✅ Working tree clean."; \
 	fi
 
+	
 post-deploy-pop:
 	@if git stash list | grep -q "Auto-stash before deploy"; then \
 		echo "🔄 Re-applying stashed changes..."; \
@@ -113,7 +125,7 @@ deploy-staging:
 		echo "✅ Already on $(STAGING_BRANCH). Just pushing changes..."; \
 		git push origin $(STAGING_BRANCH); \
 	fi
-	@$(MAKE) post-deploy-pop
+	
 	@echo "✅ Staging deploy triggered via GitHub Actions."
 
 
@@ -130,7 +142,7 @@ deploy-prod:
 	@git merge $(STAGING_BRANCH)
 	@git push origin $(MAIN_BRANCH)
 	@git checkout $(CURRENT_BRANCH)
-	@$(MAKE) post-deploy-pop
+	
 	@echo "🎉 Production deploy triggered via GitHub Actions."
 
 
