@@ -23,6 +23,55 @@
 
 
 
+# # 2. Automatic Detection of Current Branch & Context-Aware Switching
+# #----------------------------------------------------------------
+# # Environment branches (can be overridden)
+# STAGING_BRANCH ?= staging
+# MAIN_BRANCH ?= main
+
+# # Get current git branch dynamically
+# CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
+
+# .PHONY: deploy-staging deploy-prod
+
+# deploy-staging:
+# 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
+# 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
+# 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
+# 		git stash push -u -m "Auto-stash before switching" || true; \
+# 		git checkout $(STAGING_BRANCH); \
+# 		git pull origin $(STAGING_BRANCH); \
+# 		git merge $(CURRENT_BRANCH); \
+# 		git push origin $(STAGING_BRANCH); \
+# 		git checkout $(CURRENT_BRANCH); \
+# 	else \
+# 		echo "✅ Already on $(STAGING_BRANCH). Pulling latest and pushing..."; \
+# 		git pull origin $(STAGING_BRANCH); \
+# 		git push origin $(STAGING_BRANCH); \
+# 	fi
+# 	@echo "✅ Staging deploy triggered via GitHub Actions."
+
+# deploy-prod:
+# 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
+# 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
+# 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
+# 		git stash push -u -m "Auto-stash before switching" || true; \
+# 		git checkout $(STAGING_BRANCH); \
+# 		git pull origin $(STAGING_BRANCH); \
+# 		git merge $(CURRENT_BRANCH); \
+# 		git push origin $(STAGING_BRANCH); \
+# 	fi
+# 	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
+# 	@git checkout $(MAIN_BRANCH)
+# 	@git pull origin $(MAIN_BRANCH)
+# 	@git merge $(STAGING_BRANCH)
+# 	@git push origin $(MAIN_BRANCH)
+# 	@git checkout $(CURRENT_BRANCH)
+# 	@echo "🎉 Production deploy triggered via GitHub Actions."
+
+
+# 3. Uncommitted Changes & Safety Checks + Smart Auto-Stashing
+#----------------------------------------------------------------
 # Environment branches (can be overridden)
 STAGING_BRANCH ?= staging
 MAIN_BRANCH ?= main
@@ -30,9 +79,21 @@ MAIN_BRANCH ?= main
 # Get current git branch dynamically
 CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
 
-.PHONY: deploy-staging deploy-prod
+.PHONY: deploy-staging deploy-prod check-dirty
+
+# Safety check: prevent deploy with uncommitted changes
+check-dirty:
+	@echo "🔍 Checking for uncommitted changes..."
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "❌ Working directory is dirty. Please commit or stash your changes before deploying."; \
+		git status --short; \
+		exit 1; \
+	else \
+		echo "✅ Working tree is clean."; \
+	fi
 
 deploy-staging:
+	@$(MAKE) check-dirty
 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
@@ -50,6 +111,7 @@ deploy-staging:
 	@echo "✅ Staging deploy triggered via GitHub Actions."
 
 deploy-prod:
+	@$(MAKE) check-dirty
 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
@@ -68,6 +130,9 @@ deploy-prod:
 	@echo "🎉 Production deploy triggered via GitHub Actions."
 
 
+
+# Uncommitted Changes & Safety Checks
+#-------------------------------------------------------------------
 
 # #  Semantic patch for version bump + tagging
 # #-----------------------------------------------------------------
