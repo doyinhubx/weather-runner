@@ -38,7 +38,6 @@
 # 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 # 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 # 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
-# 		git stash push -u -m "Auto-stash before switching" || true; \
 # 		git checkout $(STAGING_BRANCH); \
 # 		git pull origin $(STAGING_BRANCH); \
 # 		git merge $(CURRENT_BRANCH); \
@@ -55,7 +54,6 @@
 # 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 # 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 # 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
-# 		git stash push -u -m "Auto-stash before switching" || true; \
 # 		git checkout $(STAGING_BRANCH); \
 # 		git pull origin $(STAGING_BRANCH); \
 # 		git merge $(CURRENT_BRANCH); \
@@ -72,7 +70,8 @@
 
 # 3. Uncommitted Changes & Safety Checks + Smart Auto-Stashing
 #----------------------------------------------------------------
-# Environment branches (can be overridden)
+# Define your branches
+FEATURE_BRANCH=feature/ci-cd-enhancements
 STAGING_BRANCH ?= staging
 MAIN_BRANCH ?= main
 
@@ -97,7 +96,6 @@ deploy-staging:
 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
-		git stash push -u -m "Auto-stash before switching" || true; \
 		git checkout $(STAGING_BRANCH); \
 		git pull origin $(STAGING_BRANCH); \
 		git merge $(CURRENT_BRANCH); \
@@ -115,7 +113,6 @@ deploy-prod:
 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
-		git stash push -u -m "Auto-stash before switching" || true; \
 		git checkout $(STAGING_BRANCH); \
 		git pull origin $(STAGING_BRANCH); \
 		git merge $(CURRENT_BRANCH); \
