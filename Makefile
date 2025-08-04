@@ -179,8 +179,8 @@ deploy-staging:
 	@echo "✅ Staging deploy triggered via GitHub Actions."
 
 deploy-prod:
-	@$(MAKE) check-dirty
 	@$(MAKE) bump-version
+	@$(MAKE) check-dirty
 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
