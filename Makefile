@@ -112,7 +112,6 @@ deploy-prod:
 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
 		git checkout $(STAGING_BRANCH); \
 		git merge $(CURRENT_BRANCH); \
-		git push origin $(STAGING_BRANCH); \
 	fi
 	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
 	@git checkout $(MAIN_BRANCH)
