@@ -1,7 +1,7 @@
-# k8s/helm/environments/dev/values.yaml
+# weather-app-helms/environment/dev/values.yaml
 image:
   repository: eslintpurity/weather-app
-  tag: dev-helms
+  tag: dev-helms  # This gets overwritten automatically
   pullPolicy: Always
 service:
   type: ClusterIP
@@ -9,4 +9,4 @@ service:
   targetPort: 8080
 ingress:
   enabled: true
-  hostname: dev.helm-weather.local
+  hostname: dev.helm.weather.local
