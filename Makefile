@@ -1,28 +1,74 @@
-# Change this to your feature branch name
-FEATURE_BRANCH=feature/ci-cd-enhancements
-STAGING_BRANCH=staging
-MAIN_BRANCH=main
+# # Change this to your feature branch name
+# FEATURE_BRANCH=feature/ci-cd-enhancements
+# STAGING_BRANCH=staging
+# MAIN_BRANCH=main
+
+# .PHONY: deploy-staging deploy-prod
+
+# deploy-staging:
+# 	@echo "Merging $(FEATURE_BRANCH) into $(STAGING_BRANCH)..."
+# 	git checkout $(STAGING_BRANCH)
+# 	git pull origin $(STAGING_BRANCH)
+# 	git merge $(FEATURE_BRANCH)
+# 	git push origin $(STAGING_BRANCH)
+# 	@echo "✅ Staging deploy triggered via GitHub Actions."
+
+# deploy-prod:
+# 	@echo "Merging $(STAGING_BRANCH) into $(MAIN_BRANCH)..."
+# 	git checkout $(MAIN_BRANCH)
+# 	git pull origin $(MAIN_BRANCH)
+# 	git merge $(STAGING_BRANCH)
+# 	git push origin $(MAIN_BRANCH)
+# 	@echo "🚀 Production deploy triggered via GitHub Actions."
+
+
+
+# Environment branches (can be overridden)
+STAGING_BRANCH ?= staging
+MAIN_BRANCH ?= main
+
+# Get current git branch dynamically
+CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
 
 .PHONY: deploy-staging deploy-prod
 
 deploy-staging:
-	@echo "Merging $(FEATURE_BRANCH) into $(STAGING_BRANCH)..."
-	git checkout $(STAGING_BRANCH)
-	git pull origin $(STAGING_BRANCH)
-	git merge $(FEATURE_BRANCH)
-	git push origin $(STAGING_BRANCH)
+	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
+	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
+		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
+		git stash push -u -m "Auto-stash before switching" || true; \
+		git checkout $(STAGING_BRANCH); \
+		git pull origin $(STAGING_BRANCH); \
+		git merge $(CURRENT_BRANCH); \
+		git push origin $(STAGING_BRANCH); \
+		git checkout $(CURRENT_BRANCH); \
+	else \
+		echo "✅ Already on $(STAGING_BRANCH). Pulling latest and pushing..."; \
+		git pull origin $(STAGING_BRANCH); \
+		git push origin $(STAGING_BRANCH); \
+	fi
 	@echo "✅ Staging deploy triggered via GitHub Actions."
 
 deploy-prod:
-	@echo "Merging $(STAGING_BRANCH) into $(MAIN_BRANCH)..."
-	git checkout $(MAIN_BRANCH)
-	git pull origin $(MAIN_BRANCH)
-	git merge $(STAGING_BRANCH)
-	git push origin $(MAIN_BRANCH)
-	@echo "🚀 Production deploy triggered via GitHub Actions."
+	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
+	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
+		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
+		git stash push -u -m "Auto-stash before switching" || true; \
+		git checkout $(STAGING_BRANCH); \
+		git pull origin $(STAGING_BRANCH); \
+		git merge $(CURRENT_BRANCH); \
+		git push origin $(STAGING_BRANCH); \
+	fi
+	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
+	@git checkout $(MAIN_BRANCH)
+	@git pull origin $(MAIN_BRANCH)
+	@git merge $(STAGING_BRANCH)
+	@git push origin $(MAIN_BRANCH)
+	@git checkout $(CURRENT_BRANCH)
+	@echo "🎉 Production deploy triggered via GitHub Actions."
 
 
-#
+
 # #  Semantic patch for version bump + tagging
 # #-----------------------------------------------------------------
 # STAGING_BRANCH=staging
