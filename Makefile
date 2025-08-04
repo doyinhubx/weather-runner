@@ -85,9 +85,19 @@ check-dirty:
 	@echo "🔍 Checking for uncommitted changes..."
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
 		echo "⚠️  Uncommitted changes found. Stashing..."; \
-		git stash push -u -m "Auto-stash before deploy-staging"; \
+		git stash push -u -m "Auto-stash before deploy"; \
+		echo "💾 Changes stashed."; \
+		echo "NOTE: They will be popped back after deploy."; \
 	else \
 		echo "✅ Working tree clean."; \
+	fi
+
+post-deploy-pop:
+	@if git stash list | grep -q "Auto-stash before deploy"; then \
+		echo "🔄 Re-applying stashed changes..."; \
+		git stash pop; \
+	else \
+		echo "ℹ️  No deploy-related stash to pop."; \
 	fi
 
 deploy-staging:
@@ -103,7 +113,9 @@ deploy-staging:
 		echo "✅ Already on $(STAGING_BRANCH). Just pushing changes..."; \
 		git push origin $(STAGING_BRANCH); \
 	fi
+	@$(MAKE) post-deploy-pop
 	@echo "✅ Staging deploy triggered via GitHub Actions."
+
 
 deploy-prod:
 	@$(MAKE) check-dirty
@@ -118,7 +130,9 @@ deploy-prod:
 	@git merge $(STAGING_BRANCH)
 	@git push origin $(MAIN_BRANCH)
 	@git checkout $(CURRENT_BRANCH)
+	@$(MAKE) post-deploy-pop
 	@echo "🎉 Production deploy triggered via GitHub Actions."
+
 
 
 
