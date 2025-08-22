@@ -227,8 +227,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # - name: Simulate deployment failure
-      #   run: exit 1
+      - name: Simulate deployment failure
+        run: exit 1
 
       # Save build artifact for rollback use
       - uses: actions/upload-artifact@v4
