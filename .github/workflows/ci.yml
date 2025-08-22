@@ -233,12 +233,13 @@ jobs:
       # After building the project in prod-deploy
       - name: Push build to backups branch
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Clone default branch first
+          # Clone the repo
           git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
           cd build-backups
+
+          # Set git user BEFORE creating orphan branch or committing
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Check if build-backups branch exists; if not, create it
           if git show-ref --quiet refs/heads/build-backups; then
@@ -252,6 +253,8 @@ jobs:
 
           # Copy build files
           cp -r ../public/* .
+
+          # Commit changes (skip if no changes)
           git add .
           git commit -m "Update backup from workflow $GITHUB_RUN_ID" || echo "No changes to commit"
           git push origin build-backups
@@ -1299,3 +1302,10 @@ jobs:
   #         terraform workspace delete -force ${{ github.run_id }}
   #       working-directory: ./terraform/dev/app
   #       continue-on-error: true
+
+
+
+
+
+
+
