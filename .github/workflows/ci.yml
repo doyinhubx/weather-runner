@@ -227,8 +227,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # - name: Simulate deployment failure
-      #   run: exit 1
+      - name: Simulate deployment failure
+        run: exit 1
 
       # After building the project in prod-deploy
       - name: Push build to backups branch
