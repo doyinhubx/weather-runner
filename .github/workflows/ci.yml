@@ -241,47 +241,47 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-  # rollback:
-  #   name: Rollback Last Successful Build
-  #   runs-on: ubuntu-latest
-  #   needs: [ci, prod-deploy]
-  #   if: ${{ needs.ci.result == 'failure' || needs.prod-deploy.result == 'failure' }}
-  #   steps:
-  #     - uses: actions/checkout@v4
+  rollback:
+    name: Rollback Last Successful Build
+    runs-on: ubuntu-latest
+    needs: [ci, prod-deploy]
+    if: ${{ needs.ci.result == 'failure' || needs.prod-deploy.result == 'failure' }}
+    steps:
+      - uses: actions/checkout@v4
 
-  #     # Install GitHub CLI
-  #     - name: Install GitHub CLI
-  #       run: sudo apt-get update && sudo apt-get install gh -y
+      # Install GitHub CLI
+      - name: Install GitHub CLI
+        run: sudo apt-get update && sudo apt-get install gh -y
 
-  #     # Authenticate GitHub CLI
-  #     - name: Authenticate GitHub CLI
-  #       run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Authenticate GitHub CLI
+      - name: Authenticate GitHub CLI
+        run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  #     # Download last successful artifact from prod-deploy
-  #     - name: Download last successful build
-  #       run: |
-  #         LAST_RUN_ID=$(gh run list --repo ${{ github.repository }} \
-  #           --workflow="Weather App CI/CD" \
-  #           --status=success \
-  #           --limit=10 \
-  #           --json databaseId,name \
-  #           --jq '.[] | select(.name=="Deploy to GitHub Pages") | .databaseId' | head -n1)
+      # Download last successful artifact from prod-deploy
+      - name: Download last successful build
+        run: |
+          LAST_RUN_ID=$(gh run list --repo ${{ github.repository }} \
+            --workflow="Weather App CI/CD" \
+            --status=success \
+            --limit=10 \
+            --json databaseId,name \
+            --jq '.[] | select(.name=="Deploy to GitHub Pages") | .databaseId' | head -n1)
 
-  #         echo "Using last successful prod-deploy run ID: $LAST_RUN_ID"
+          echo "Using last successful prod-deploy run ID: $LAST_RUN_ID"
 
-  #         gh run download $LAST_RUN_ID \
-  #           --repo ${{ github.repository }} \
-  #           --name static-site-public \
-  #           --dir ./public
+          gh run download $LAST_RUN_ID \
+            --repo ${{ github.repository }} \
+            --name static-site-public \
+            --dir ./public
 
-  #     # Redeploy the previous build
-  #     - name: Redeploy last successful build
-  #       run: |
-  #         npx gh-pages -d ./public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Redeploy the previous build
+      - name: Redeploy last successful build
+        run: |
+          npx gh-pages -d ./public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #     # Slack Notifications
   #     #---------------------------------------------------
