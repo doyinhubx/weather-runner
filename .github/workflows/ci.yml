@@ -298,8 +298,8 @@ jobs:
       - name: Simulate failure
         run: exit 1
 
+      # Always run deploy (but it won't reach here if Simulate failure runs)
       - name: Deploy to GitHub Pages
-        if: success()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
