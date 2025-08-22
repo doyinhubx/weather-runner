@@ -263,37 +263,16 @@ jobs:
         run: npm run build
 
       # Push build to backups branch
-      - name: Backup build to branch
+      - name: Safe backup with gh-pages
         run: |
-          git clone https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/${{ github.repository }} build-backups
-          cd build-backups
-
-          # Set git user
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Check if branch exists, create if not
-          if git show-ref --quiet refs/heads/build-backups; then
-            git checkout build-backups
-          else
-            git checkout --orphan build-backups
-            git rm -rf .
-            git commit --allow-empty -m "Initialize build backups branch"
-            git push origin build-backups
-          fi
-
-          # Copy build artifacts
-          cp -r ../public/* .
-
-          # Commit and push (NO force push needed)
-          git add .
-          git commit -m "Update backup from workflow $GITHUB_RUN_ID" || echo "No changes to commit"
-          git pull --rebase origin build-backups  # Handle conflicts gracefully
-          git push origin build-backups
-
+          npx gh-pages \
+            --dist public \
+            --branch build-backups \
+            --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git \
+            --message "Backup build $GITHUB_RUN_ID" \
+            --no-history
         env:
-          GITHUB_TOKEN: ${{ secrets.BACKUP_TOKEN }}  # Use PAT instead
-
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   prod-deploy:
     name: Deploy to GitHub Pages
