@@ -265,7 +265,7 @@ jobs:
       # Push build to backups branch
       - name: Backup build to branch
         run: |
-          git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} build-backups
+          git clone https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/${{ github.repository }} build-backups
           cd build-backups
 
           # Set git user
@@ -292,7 +292,7 @@ jobs:
           git push origin build-backups
 
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}  # Use PAT instead
+          GITHUB_TOKEN: ${{ secrets.BACKUP_TOKEN }}  # Use PAT instead
 
 
   prod-deploy:
