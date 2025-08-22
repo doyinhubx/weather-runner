@@ -294,9 +294,9 @@ jobs:
           name: build-output
           path: public/
 
-      # # Simulate deployment failure (remove for real deploy)
-      # - name: Simulate failure
-      #   run: exit 1
+      # Simulate deployment failure (remove for real deploy)
+      - name: Simulate failure
+        run: exit 1
 
       - name: Deploy to GitHub Pages
         if: success()
