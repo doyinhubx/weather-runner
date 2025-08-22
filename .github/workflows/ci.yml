@@ -263,8 +263,13 @@ jobs:
         run: npm run build
 
       # Push build to backups branch
-      - name: Safe backup with gh-pages
+      - name: Backup build to branch
         run: |
+          # Configure git identity
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Use gh-pages for clean backup
           npx gh-pages \
             --dist public \
             --branch build-backups \
