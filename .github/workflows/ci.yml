@@ -265,38 +265,6 @@ jobs:
       # Push build to backups branch
       - name: Backup build to branch
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
-          cd build-backups
-
-          # Set git user BEFORE commits
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Check if branch exists
-          if git show-ref --quiet refs/heads/build-backups; then
-            git checkout build-backups
-          else
-            git checkout --orphan build-backups
-            git rm -rf .
-            git commit --allow-empty -m "Initialize build backups branch"
-            git push origin build-backups
-          fi
-
-          # Copy build artifacts
-          cp -r ../public/* .
-
-          # Commit and force push
-          git add .
-          git commit -m "Update backup from workflow $GITHUB_RUN_ID" || echo "No changes to commit"
-          git push origin build-backups --force
-
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-    # Push build to backups branch
-      - name: Backup build to branch
-        run: |
           git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} build-backups
           cd build-backups
 
