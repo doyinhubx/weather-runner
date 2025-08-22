@@ -262,20 +262,20 @@ jobs:
       - name: Build project
         run: npm run build
 
+      # ✅ ADD THIS: Upload artifacts for rollback
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: public/
+          retention-days: 1
+
       # Push build to backups branch
       - name: Backup build to branch
         run: |
-          # Configure git identity
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Use gh-pages for clean backup
-          npx gh-pages \
-            --dist public \
-            --branch build-backups \
-            --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git \
-            --message "Backup build $GITHUB_RUN_ID" \
-            --no-history
+          npx gh-pages --dist public --branch build-backups --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --message "Backup build $GITHUB_RUN_ID" --no-history
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -287,26 +287,22 @@ jobs:
       name: production
       url: https://${{ github.repository_owner }}.github.io/weather-runner
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      # ✅ REMOVE REDUNDANT BUILD STEPS - use artifacts instead
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
+          name: build-output
+          path: public/
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build project
-        run: npm run build
-
-      # Simulate deployment failure (remove for real deploy)
-      - name: Simulate failure
-        run: exit 1
+      # # Simulate deployment failure (remove for real deploy)
+      # - name: Simulate failure
+      #   run: exit 1
 
       - name: Deploy to GitHub Pages
         if: success()
         run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -335,9 +331,6 @@ jobs:
         run: |
           echo "✅ Successfully rolled back to last stable build"
           echo "Rollback triggered because prod-deploy failed"
-
-
-
 
 
   #     # Slack Notifications
