@@ -244,8 +244,8 @@ jobs:
   rollback:
     name: Rollback to last successful deploy
     runs-on: ubuntu-latest
-    needs: prod-deploy
-    if: needs.prod-deploy.result == 'failure'
+    needs: ci
+    if: needs.ci.result == 'failure'
     steps:
       - uses: actions/checkout@v4
 
