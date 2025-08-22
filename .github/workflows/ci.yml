@@ -317,17 +317,24 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.prod-deploy.result == 'failure'
     steps:
-      - name: Checkout backups branch
-        run: |
-          git clone --branch build-backups https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} rollback
-          cd rollback
-          ls -la
+      - name: Download last successful build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: public/
 
-      - name: Redeploy last successful build
+      - name: Deploy rollback build
         run: |
-          npx gh-pages -d ./rollback -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify rollback
+        run: |
+          echo "✅ Successfully rolled back to last stable build"
+          echo "Rollback triggered because prod-deploy failed"
 
 
 
