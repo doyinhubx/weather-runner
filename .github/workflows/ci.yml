@@ -106,6 +106,7 @@ jobs:
       #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
+
       # Slack Notifications
       #---------------------------------------------------
       # - name: Notify Slack of CI Automated Tests Success
@@ -158,90 +159,120 @@ jobs:
       #         }]
       #       }' $DISCORD_WEBHOOK
 
+
   # # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
   # #-----------------------------------------------------------------------------
-  prod-deploy:
-    name: Deploy to GitHub Pages (Production env)
+  # production-deploy:
+  #   name: Deploy to GitHub Pages (Production env)
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # only for main
+  #   environment:
+  #     name: production
+  #     url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
+
+  #   steps:
+  #     # - name: Notify Slack of Awaiting Production Approval
+  #     #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #     #   uses: rtCamp/action-slack-notify@v2
+  #     #   env:
+  #     #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+  #     #     SLACK_MESSAGE: |
+  #     #       🛑 *Production Deployment Pending Approval*  
+  #     #       Repository: `${{ github.repository }}`  
+  #     #       Branch: `${{ github.ref_name }}`  
+  #     #       Commit: `${{ github.sha }}`  
+  #     #       Please approve in GitHub Environments → Production.
+  #     #     SLACK_COLOR: warning
+
+
+  #     # - name: Notify Discord of Awaiting Production Approval
+  #     #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #     #   env:
+  #     #     DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+  #     #   run: |
+  #     #     curl -H "Content-Type: application/json" \
+  #     #       -X POST \
+  #     #       -d '{
+  #     #         "embeds": [{
+  #     #           "title": "🛑 Production Deployment Pending Approval",
+  #     #           "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\n🔒 Please approve this deployment via **GitHub → Environments → Production**.",
+  #     #           "color": 16753920
+  #     #         }]
+  #     #       }' $DISCORD_WEBHOOK
+
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+
+  #     # Allows GitHub Actions caching
+  #     - name: Cache npm dependencies
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~/.npm
+  #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-node-
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Configure git user
+  #       run: |
+  #         git config user.name "github-actions[bot]"
+  #         git config user.email "github-actions[bot]@users.noreply.github.com"
+
+  #     - name: Build project
+  #       run: npm run build
+
+  #     # Save build artifact for rollback use
+  #     - uses: actions/upload-artifact@v4
+  #       if: success()
+  #       with:
+  #         name: static-site-public
+  #         path: ./public
+  #         retention-days: 7
+
+  #     - name: Deploy to GitHub Pages
+  #       run: |
+  #         npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  prod-build:
+    name: Build & Backup
     needs: ci
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.ci.result == 'success'
-    environment:
-      name: production
-      url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
-
     steps:
-      # - name: Notify Slack of Awaiting Production Approval
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      #   uses: rtCamp/action-slack-notify@v2
-      #   env:
-      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
-      #     SLACK_MESSAGE: |
-      #       🛑 *Production Deployment Pending Approval*  
-      #       Repository: `${{ github.repository }}`  
-      #       Branch: `${{ github.ref_name }}`  
-      #       Commit: `${{ github.sha }}`  
-      #       Please approve in GitHub Environments → Production.
-      #     SLACK_COLOR: warning
-
-
-      # - name: Notify Discord of Awaiting Production Approval
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      #   env:
-      #     DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
-      #   run: |
-      #     curl -H "Content-Type: application/json" \
-      #       -X POST \
-      #       -d '{
-      #         "embeds": [{
-      #           "title": "🛑 Production Deployment Pending Approval",
-      #           "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\n🔒 Please approve this deployment via **GitHub → Environments → Production**.",
-      #           "color": 16753920
-      #         }]
-      #       }' $DISCORD_WEBHOOK
-
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Allows GitHub Actions caching
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Configure git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Build project
         run: npm run build
 
-      - name: Simulate deployment failure
-        run: exit 1
-
-      # After building the project in prod-deploy
-      - name: Push build to backups branch
+      # Push build to backups branch
+      - name: Backup build to branch
         run: |
-          # Clone the repo
           git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
           cd build-backups
 
-          # Set git user BEFORE creating orphan branch or committing
+          # Set git user BEFORE commits
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if build-backups branch exists; if not, create it
+          # Check if branch exists
           if git show-ref --quiet refs/heads/build-backups; then
             git checkout build-backups
           else
@@ -251,40 +282,65 @@ jobs:
             git push origin build-backups
           fi
 
-          # Copy build files
           cp -r ../public/* .
-
-          # Commit changes (skip if no changes)
           git add .
           git commit -m "Update backup from workflow $GITHUB_RUN_ID" || echo "No changes to commit"
           git push origin build-backups
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  prod-deploy:
+    name: Deploy to GitHub Pages
+    needs: prod-build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ github.repository_owner }}.github.io/weather-runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      # # Simulate deployment failure (remove for real deploy)
+      # - name: Simulate failure
+      #   run: exit 1
+
       - name: Deploy to GitHub Pages
-        if: success()  # will only run if previous steps succeed
+        if: success()
         run: |
           npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  rollback-prod-deploy:
+  rollback-deploy:
     name: Rollback Last Successful Build
-    runs-on: ubuntu-latest
     needs: prod-deploy
+    runs-on: ubuntu-latest
     if: needs.prod-deploy.result == 'failure'
     steps:
       - name: Checkout backups branch
         run: |
           git clone --branch build-backups https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} rollback
           cd rollback
-          ls -la  # confirm files are here
+          ls -la
 
       - name: Redeploy last successful build
         run: |
           npx gh-pages -d ./rollback -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
 
 
   #     # Slack Notifications
@@ -1302,10 +1358,3 @@ jobs:
   #         terraform workspace delete -force ${{ github.run_id }}
   #       working-directory: ./terraform/dev/app
   #       continue-on-error: true
-
-
-
-
-
-
-
