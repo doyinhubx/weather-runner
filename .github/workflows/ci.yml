@@ -300,9 +300,9 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # # Simulate deployment failure (remove for real deploy)
-      # - name: Simulate failure
-      #   run: exit 1
+      # Simulate deployment failure (remove for real deploy)
+      - name: Simulate failure
+        run: exit 1
 
       - name: Deploy to GitHub Pages
         if: success()
