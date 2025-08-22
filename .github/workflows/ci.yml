@@ -227,22 +227,30 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Simulate deployment failure
-        run: exit 1
+      # - name: Simulate deployment failure
+      #   run: exit 1
 
       # After building the project in prod-deploy
-      - name: Commit build to backups branch
+      - name: Push build to backups branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Clone the backups branch into a temp folder
-          git clone --branch build-backups https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
-          rm -rf build-backups/*
-          
-          # Copy new build into backups branch
+          # Try to clone branch, if fails, create it
+          if git ls-remote --heads origin build-backups; then
+            git clone --branch build-backups https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
+          else
+            git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
+            cd build-backups
+            git checkout --orphan build-backups
+            git rm -rf .
+            git commit --allow-empty -m "Initialize build backups branch"
+            git push origin build-backups
+            cd ..
+          fi
+
+          # Copy build files
           cp -r public/* build-backups/
-          
           cd build-backups
           git add .
           git commit -m "Update backup from workflow $GITHUB_RUN_ID"
