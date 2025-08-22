@@ -227,6 +227,9 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Simulate deployment failure
+        run: exit 1
+
       # Save build artifact for rollback use
       - uses: actions/upload-artifact@v4
         if: success()
@@ -236,11 +239,12 @@ jobs:
           retention-days: 7
 
       - name: Deploy to GitHub Pages
+        if: success()  # will only run if previous steps succeed
         run: |
           npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
   rollback:
     name: Rollback Last Successful Build
     runs-on: ubuntu-latest
