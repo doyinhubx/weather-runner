@@ -227,16 +227,28 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Simulate deployment failure
-        run: exit 1
+      # - name: Simulate deployment failure
+      #   run: exit 1
 
-      # Save build artifact for rollback use
-      - uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: static-site-public
-          path: ./public
-          retention-days: 7
+      # After building the project in prod-deploy
+      - name: Commit build to backups branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Clone the backups branch into a temp folder
+          git clone --branch build-backups https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} build-backups
+          rm -rf build-backups/*
+          
+          # Copy new build into backups branch
+          cp -r public/* build-backups/
+          
+          cd build-backups
+          git add .
+          git commit -m "Update backup from workflow $GITHUB_RUN_ID"
+          git push origin build-backups
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy to GitHub Pages
         if: success()  # will only run if previous steps succeed
@@ -251,38 +263,18 @@ jobs:
     needs: prod-deploy
     if: needs.prod-deploy.result == 'failure'
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Install GitHub CLI
-        run: sudo apt-get update && sudo apt-get install gh -y
-
-      - name: Authenticate GitHub CLI
-        run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download last successful build artifact
+      - name: Checkout backups branch
         run: |
-          LAST_RUN_ID=$(gh run list --repo ${{ github.repository }} \
-            --workflow="Weather App CI/CD" \
-            --status=success \
-            --limit=10 \
-            --json databaseId,name \
-            --jq '.[] | select(.name=="Deploy to GitHub Pages (Production env)") | .databaseId' | head -n1)
-
-          echo "Using last successful prod-deploy run ID: $LAST_RUN_ID"
-
-          gh run download $LAST_RUN_ID \
-            --repo ${{ github.repository }} \
-            --name static-site-public \
-            --dir ./public
+          git clone --branch build-backups https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} rollback
+          cd rollback
+          ls -la  # confirm files are here
 
       - name: Redeploy last successful build
         run: |
-          npx gh-pages -d ./public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          npx gh-pages -d ./rollback -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   #     # Slack Notifications
   #     #---------------------------------------------------
