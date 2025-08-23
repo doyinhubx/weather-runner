@@ -293,20 +293,24 @@ jobs:
           name: build-output
           path: public/
 
-      # ✅ Cause an actual deployment failure
-      - name: Corrupt build artifacts (for testing)
-        if: github.ref != 'refs/heads/main'
-        run: |
-          echo "CORRUPTING BUILD FOR TESTING" > public/index.html
-          rm -rf public/assets/ 2>/dev/null || true
-
+      # ✅ USE THE GH-PAGES ACTION
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           force_orphan: true
-          
+
+      # ✅ WAIT FOR DEPLOYMENT TO PROPAGATE BEFORE SIMULATING FAILURE
+      - name: Wait for deployment
+        run: sleep 180  # Wait 30 seconds for GitHub Pages to start processing
+
+      # ✅ SIMULATE FAILURE AFTER DEPLOYMENT HAS STARTED
+      - name: Simulate deployment failure
+        run: |
+          echo "Simulating deployment failure after successful deployment"
+          exit 1
+
   rollback-deploy:
     name: Rollback Last Successful Build
     needs: prod-deploy
