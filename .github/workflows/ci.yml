@@ -287,24 +287,24 @@ jobs:
       name: production
       url: https://${{ github.repository_owner }}.github.io/weather-runner
     steps:
-      # ✅ REMOVE REDUNDANT BUILD STEPS - use artifacts instead
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-output
           path: public/
 
-      # Always run deploy (but it won't reach here if Simulate failure runs)
+      - name: Install gh-pages globally
+        run: npm install -g gh-pages
+
       - name: Deploy to GitHub Pages
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Simulate deployment failure (remove for real deploy)
-      - name: Simulate failure
+      - name: Simulate deployment failure
         run: exit 1
 
   rollback-deploy:
