@@ -293,17 +293,20 @@ jobs:
           name: build-output
           path: public/
 
-      # ✅ USE THE GH-PAGES ACTION (MOST RELIABLE)
+      # ✅ Cause an actual deployment failure
+      - name: Corrupt build artifacts (for testing)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "CORRUPTING BUILD FOR TESTING" > public/index.html
+          rm -rf public/assets/ 2>/dev/null || true
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           force_orphan: true
-
-      - name: Simulate deployment failure
-        run: exit 1
-
+          
   rollback-deploy:
     name: Rollback Last Successful Build
     needs: prod-deploy
