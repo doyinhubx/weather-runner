@@ -293,16 +293,13 @@ jobs:
           name: build-output
           path: public/
 
-      - name: Install gh-pages globally
-        run: npm install -g gh-pages
-
+      # ✅ USE THE GH-PAGES ACTION (MOST RELIABLE)
       - name: Deploy to GitHub Pages
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          force_orphan: true
 
       - name: Simulate deployment failure
         run: exit 1
@@ -319,13 +316,13 @@ jobs:
           name: build-output
           path: public/
 
+      # ✅ USE THE GH-PAGES ACTION FOR ROLLBACK TOO
       - name: Deploy rollback build
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          force_orphan: true
 
       - name: Notify rollback
         run: |
