@@ -268,7 +268,7 @@ jobs:
         with:
           name: build-output
           path: public/
-          retention-days: 1
+          retention-days: 7
 
       # Push build to backups branch
       - name: Backup build to branch
@@ -301,15 +301,15 @@ jobs:
           publish_dir: ./public
           force_orphan: true
 
-      # # ✅ WAIT FOR DEPLOYMENT TO PROPAGATE BEFORE SIMULATING FAILURE
-      # - name: Wait for deployment
-      #   run: sleep 120  # Wait 120 seconds for GitHub Pages to start processing
+      # ✅ WAIT FOR DEPLOYMENT TO PROPAGATE BEFORE SIMULATING FAILURE
+      - name: Wait for deployment
+        run: sleep 120  # Wait 120 seconds for GitHub Pages to start processing
 
-      # # ✅ SIMULATE FAILURE AFTER DEPLOYMENT HAS STARTED
-      # - name: Simulate deployment failure
-      #   run: |
-      #     echo "Simulating deployment failure after successful deployment"
-      #     exit 1
+      # ✅ SIMULATE FAILURE AFTER DEPLOYMENT HAS STARTED
+      - name: Simulate deployment failure
+        run: |
+          echo "Simulating deployment failure after successful deployment"
+          exit 1
 
   rollback-deploy:
     name: Rollback Last Successful Build
@@ -335,6 +335,8 @@ jobs:
         run: |
           echo "✅ Successfully rolled back to last stable build"
           echo "Rollback triggered because prod-deploy failed"
+
+
 
   #     # Slack Notifications
   #     #---------------------------------------------------
