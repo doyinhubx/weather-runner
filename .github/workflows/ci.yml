@@ -294,10 +294,6 @@ jobs:
           name: build-output
           path: public/
 
-      # Simulate deployment failure (remove for real deploy)
-      - name: Simulate failure
-        run: exit 1
-
       # Always run deploy (but it won't reach here if Simulate failure runs)
       - name: Deploy to GitHub Pages
         run: |
@@ -306,6 +302,10 @@ jobs:
           npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Simulate deployment failure (remove for real deploy)
+      - name: Simulate failure
+        run: exit 1
 
   rollback-deploy:
     name: Rollback Last Successful Build
