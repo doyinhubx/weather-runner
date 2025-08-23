@@ -293,23 +293,28 @@ jobs:
           name: build-output
           path: public/
 
-      # ✅ USE THE GH-PAGES ACTION
-      - name: Deploy to GitHub Pages
+      # ✅ INTENTIONALLY FAIL THE DEPLOYMENT STEP
+      - name: Deploy to GitHub Pages (with intentional failure)
+        if: github.ref != 'refs/heads/main'  # Only fail on test branches
+        run: |
+          # First deploy successfully
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+          # Then fail to trigger rollback
+          echo "Simulating deployment failure"
+          exit 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to GitHub Pages (normal)
+        if: github.ref == 'refs/heads/main'  # Only on main branch
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           force_orphan: true
-
-      # ✅ WAIT FOR DEPLOYMENT TO PROPAGATE BEFORE SIMULATING FAILURE
-      - name: Wait for deployment
-        run: sleep 60  # Wait 120 seconds for GitHub Pages to start processing
-
-      # ✅ SIMULATE FAILURE AFTER DEPLOYMENT HAS STARTED
-      - name: Simulate deployment failure
-        run: |
-          echo "Simulating deployment failure after successful deployment"
-          exit 1
 
   rollback-deploy:
     name: Rollback Last Successful Build
