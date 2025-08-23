@@ -303,7 +303,7 @@ jobs:
 
       # ✅ WAIT FOR DEPLOYMENT TO PROPAGATE BEFORE SIMULATING FAILURE
       - name: Wait for deployment
-        run: sleep 180  # Wait 30 seconds for GitHub Pages to start processing
+        run: sleep 120  # Wait 120 seconds for GitHub Pages to start processing
 
       # ✅ SIMULATE FAILURE AFTER DEPLOYMENT HAS STARTED
       - name: Simulate deployment failure
