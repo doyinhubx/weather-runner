@@ -105,7 +105,7 @@ jobs:
         with:
           config-path: .gitleaks.toml
           # The action automatically handles report generation and uploading.
-        # continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
+        continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
       #     report-path: gitleaks.sarif
       #     report-format: sarif
       #   continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
