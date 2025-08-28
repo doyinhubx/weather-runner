@@ -28,7 +28,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for Gitleaks full history scan
 
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -54,16 +56,26 @@ jobs:
         run: npm test -- --ci --reporters=default --coverage
 
       # # 🚨 Gitleaks - Secrets Scanner
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0  # Required for full commit history
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # - name: Run Gitleaks via CLI
-      #   run: |
-      #     wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
-      #     mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
-      #     ./gitleaks/gitleaks detect --redact --verbose --log-opts=-1 --report-format sarif --report-path results.sarif --config .gitleaks.toml
+      - name: Download Gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
+
+      - name: Run Gitleaks
+        run: |
+          ./gitleaks/gitleaks detect --redact --verbose \
+            --report-format sarif --report-path results.sarif \
+            --config .gitleaks.toml
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
@@ -312,102 +324,102 @@ jobs:
 
 
 
-  prod-build:
-    name: Build & Backup
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # prod-build:
+  #   name: Build & Backup
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
 
-      - name: Install dependencies
-        run: npm ci
+  #     - name: Install dependencies
+  #       run: npm ci
 
-      - name: Build project
-        run: npm run build
+  #     - name: Build project
+  #       run: npm run build
 
-      # ✅ ADD THIS: Upload artifacts for rollback
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: public/
-          retention-days: 7
+  #     # ✅ ADD THIS: Upload artifacts for rollback
+  #     - name: Upload build artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+  #         retention-days: 7
 
-      # Push build to backups branch
-      - name: Backup build to branch
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          npx gh-pages --dist public --branch build-backups --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --message "Backup build $GITHUB_RUN_ID" --no-history
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     # Push build to backups branch
+  #     - name: Backup build to branch
+  #       run: |
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         npx gh-pages --dist public --branch build-backups --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --message "Backup build $GITHUB_RUN_ID" --no-history
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  prod-deploy:
-    name: Deploy to GitHub Pages
-    needs: prod-build
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://${{ github.repository_owner }}.github.io/weather-runner
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: public/
+  # prod-deploy:
+  #   name: Deploy to GitHub Pages
+  #   needs: prod-build
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: production
+  #     url: https://${{ github.repository_owner }}.github.io/weather-runner
+  #   steps:
+  #     - name: Download build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
 
-      # ✅ INTENTIONALLY FAIL THE DEPLOYMENT STEP
-      - name: Deploy to GitHub Pages (with intentional failure)
-        if: github.ref != 'refs/heads/main'  # Only fail on test branches
-        run: |
-          # First deploy successfully
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+  #     # ✅ INTENTIONALLY FAIL THE DEPLOYMENT STEP
+  #     - name: Deploy to GitHub Pages (with intentional failure)
+  #       if: github.ref != 'refs/heads/main'  # Only fail on test branches
+  #       run: |
+  #         # First deploy successfully
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           
-          # Then fail to trigger rollback
-          echo "Simulating deployment failure"
-          exit 1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         # Then fail to trigger rollback
+  #         echo "Simulating deployment failure"
+  #         exit 1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to GitHub Pages (normal)
-        if: github.ref == 'refs/heads/main'  # Only on main branch
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          force_orphan: true
+  #     - name: Deploy to GitHub Pages (normal)
+  #       if: github.ref == 'refs/heads/main'  # Only on main branch
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: ./public
+  #         force_orphan: true
 
-  rollback-deploy:
-    name: Rollback Last Successful Build
-    needs: prod-deploy
-    runs-on: ubuntu-latest
-    if: always()  # Temporary: always run to debug
-    steps:
-      - name: Download last successful build
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: public/
+  # rollback-deploy:
+  #   name: Rollback Last Successful Build
+  #   needs: prod-deploy
+  #   runs-on: ubuntu-latest
+  #   if: always()  # Temporary: always run to debug
+  #   steps:
+  #     - name: Download last successful build
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
 
-      # ✅ USE THE GH-PAGES ACTION FOR ROLLBACK TOO
-      - name: Deploy rollback build
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          force_orphan: true
+  #     # ✅ USE THE GH-PAGES ACTION FOR ROLLBACK TOO
+  #     - name: Deploy rollback build
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: ./public
+  #         force_orphan: true
 
-      - name: Notify rollback
-        run: |
-          echo "✅ Successfully rolled back to last stable build"
-          echo "Rollback triggered because prod-deploy failed"
+  #     - name: Notify rollback
+  #       run: |
+  #         echo "✅ Successfully rolled back to last stable build"
+  #         echo "Rollback triggered because prod-deploy failed"
 
   # docker:
   #   name: Build & Push Docker Image
