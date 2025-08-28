@@ -10,10 +10,3 @@ tags = ["key", "api-key"]
 # Reduces false positives
 entropy = 3.5
 
-# Add an allowlist to ignore env var placeholders or safe patterns
-[allowlist]
-description = "Ignore environment variable placeholders and Pulumi secret commands"
-regexes = [
-    '''\$SERVICE_ACCOUNT_KEY''',       # Ignore $SERVICE_ACCOUNT_KEY
-    '''pulumi config set --secret.*'''   # Ignore Pulumi secret commands
-]
