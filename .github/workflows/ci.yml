@@ -80,32 +80,33 @@ jobs:
       #   with:
       #     fetch-depth: 0
 
-      # - name: Download Gitleaks
-      #   run: |
-      #     wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
-      #     mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
+      - name: Download Gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
 
-      # - name: Run Gitleaks
-      #   run: |
-      #     ./gitleaks/gitleaks detect --redact --verbose \
-      #       --report-format sarif --report-path results.sarif \
-      #       --config .gitleaks.toml
+      - name: Run Gitleaks
+        run: |
+          ./gitleaks/gitleaks detect --redact --verbose \
+            --report-format sarif --report-path results.sarif \
+            --config .gitleaks.toml
 
-      # - name: Upload SARIF to GitHub Security
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: results.sarif
-
-    
-      # Gitleaks - Secrets Scanner
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          config-path: .gitleaks.toml
-          # The action automatically handles report generation and uploading.
-        continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
+          sarif_file: results.sarif
+
+
+      # # Gitleaks - Secrets Scanner
+      # - name: Gitleaks
+      #   uses: gitleaks/gitleaks-action@v2
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     config-path: .gitleaks.toml
+      #     # The action automatically handles report generation and uploading.
+      #   continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
+        
       #     report-path: gitleaks.sarif
       #     report-format: sarif
       #   continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
