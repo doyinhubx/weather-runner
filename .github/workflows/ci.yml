@@ -63,13 +63,13 @@ jobs:
         with:
           config-path: .gitleaks.toml
           # The action will automatically generate the sarif file in a location it can find.
-          # You can specify the output file if needed: report-path: gitleaks-results.sarif
+          # You can specify the output file if needed: report-path: gitleaks.sarif
         continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: gitleaks-results.sarif # Match the report-path from the Gitleaks step
+          sarif_file: gitleaks.sarif # Match the report-path from the Gitleaks step
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
