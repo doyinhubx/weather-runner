@@ -72,43 +72,20 @@ jobs:
       #   with:
       #     sarif_file: gitleaks.sarif # Match the report-path from the Gitleaks step
 
-      # # Gitleaks - Secrets Scanner
-      # - name: Gitleaks
-      #   uses: gitleaks/gitleaks-action@v2
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     config-path: .gitleaks.toml
-      #     report-path: gitleaks.sarif # Correctly nested under 'with:'
-      #     report-format: sarif   # <--- Add this
-      #   continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
-
-      # - name: Upload SARIF file
-      #   if: success() || failure() # run even if leaks are found
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: gitleaks.sarif
-
-
-      - name: Install Gitleaks
-        run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 \
-          -o gitleaks
-          chmod +x gitleaks
-          sudo mv gitleaks /usr/local/bin/
-
-      - name: Run Gitleaks scan
-        run: |
-          gitleaks detect \
-            --source . \
-            --report-format sarif \
-            --report-path gitleaks.sarif
+      # Gitleaks - Secrets Scanner (simplified)
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-path: .gitleaks.toml
+          report-format: sarif
         continue-on-error: true
 
-      - name: Upload SARIF to GitHub Security tab
+      - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: gitleaks.sarif
+          sarif_file: gitleaks-report.sarif # Default filename used by gitleaks-action
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
