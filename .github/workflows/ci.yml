@@ -464,12 +464,12 @@ jobs:
         with:
           image-ref: weather-app:latest
           format: 'table'
-          exit-code: '0'
+          exit-code: '1' # Fail on CRITICAL or HIGH vulnerabilities
           severity: 'CRITICAL,HIGH'
           output: trivy-results.txt
 
       - name: Upload Trivy Scan Report
-        if: failure()
+        # This step will always run, whether the Trivy scan passes or fails.
         uses: actions/upload-artifact@v4
         with:
           name: trivy-report
