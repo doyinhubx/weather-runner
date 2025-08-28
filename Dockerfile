@@ -1,5 +1,6 @@
 # Stage 1: Build the app using Node
-FROM node:20-alpine AS builder
+# FROM node:20-alpine AS builder
+FROM node:20-alpine@sha256:d9472e36b359f518e38d4c9735d48722c2a0d783a31e138a0c20257c7c093a77 AS builder
 
 # Set working directory
 WORKDIR /app
