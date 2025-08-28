@@ -57,102 +57,15 @@ jobs:
       - name: Run tests with coverage
         run: npm test -- --ci --reporters=default --coverage
 
-      # # Gitleaks - Secrets Scanner
-      # - name: Gitleaks
-      #   uses: gitleaks/gitleaks-action@v2
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     config-path: .gitleaks.toml
-      #     report-path: gitleaks.sarif # <-- Add this line
-      #     # The action will automatically generate the sarif file in a location it can find.
-      #     # You can specify the output file if needed: report-path: gitleaks.sarif
-      #   continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
-
-      # - name: Upload SARIF file
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: gitleaks.sarif # Match the report-path from the Gitleaks step
-
-
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0
-
-      - name: Download Gitleaks
-        run: |
-          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
-          mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
-
-      - name: Run Gitleaks
-        run: |
-          ./gitleaks/gitleaks detect --redact --verbose \
-            --report-format sarif --report-path results.sarif \
-            --config .gitleaks.toml
-
-      - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+      # Gitleaks - Secrets Scanner
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          sarif_file: results.sarif
-
-
-      # # Gitleaks - Secrets Scanner
-      # - name: Gitleaks
-      #   uses: gitleaks/gitleaks-action@v2
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     config-path: .gitleaks.toml
-      #     # The action automatically handles report generation and uploading.
-      #   continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
-        
-      #     report-path: gitleaks.sarif
-      #     report-format: sarif
-      #   continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
-
-      # - name: Check if SARIF file exists
-      #   run: |
-      #     if [ -f "gitleaks.sarif" ]; then
-      #       echo "SARIF file found"
-      #       ls -la gitleaks.sarif
-      #     else
-      #       echo "SARIF file not found - creating minimal fallback"
-      #       cat > gitleaks.sarif <<'EOF'
-      #     {
-      #       "version": "2.1.0",
-      #       "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-      #       "runs": [
-      #         {
-      #           "tool": {
-      #             "driver": {
-      #               "name": "gitleaks",
-      #               "informationUri": "https://github.com/gitleaks/gitleaks",
-      #               "rules": []
-      #             }
-      #           },
-      #           "results": []
-      #         }
-      #       ]
-      #     }
-      #     EOF
-      #         fi
-
-      # - name: Upload SARIF file
-      #   if: success() || failure() # run regardless of gitleaks result
-      #   run: |
-      #     echo "Uploading gitleaks.sarif..."
-      #     echo "::group::SARIF Preview"
-      #     cat gitleaks.sarif
-      #     echo "::endgroup::"
-
-      # - name: Upload SARIF to GitHub
-      #   if: success() || failure()
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: gitleaks.sarif
-
-
+          config-path: .gitleaks.toml
+          # The action automatically handles report generation and uploading.
+        continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
@@ -498,75 +411,75 @@ jobs:
   #         echo "✅ Successfully rolled back to last stable build"
   #         echo "Rollback triggered because prod-deploy failed"
 
-  # docker:
-  #   name: Build & Push Docker Image
-  #   needs: ci
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/main'
+  docker:
+    name: Build & Push Docker Image
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-  #     - name: Log in to Docker Hub
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: docker.io
-  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
-  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  #     - name: Log in to GitHub Container Registry
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GHCR_PAT }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
 
-  #     # # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
-  #     # - name: Build and push Docker image
-  #     #   uses: docker/build-push-action@v5
-  #     #   with:
-  #     #     context: .
-  #     #     push: true
-  #     #     tags: |
-  #     #       docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
-  #     #       ghcr.io/${{ github.repository_owner }}/weather-app:latest
-  #     #     cache-from: type=gha
-  #     #     cache-to: type=gha, mode=max
+      # # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: |
+      #       docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+      #       ghcr.io/${{ github.repository_owner }}/weather-app:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha, mode=max
 
-  #     - name: Build Docker image
-  #       run: |
-  #         docker build \
-  #           -t weather-app:latest \
-  #           -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
-  #           -t ghcr.io/${{ github.repository_owner }}/weather-app:latest \
-  #           .
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t weather-app:latest \
+            -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
+            -t ghcr.io/${{ github.repository_owner }}/weather-app:latest \
+            .
 
-  #     # Trivy - Docker image vulnerability scan
-  #     - name: Scan Docker image with Trivy
-  #       uses: aquasecurity/trivy-action@master
-  #       with:
-  #         image-ref: weather-app:latest
-  #         format: 'table'
-  #         exit-code: '0'
-  #         severity: 'CRITICAL,HIGH'
-  #         output: trivy-results.txt
+      # Trivy - Docker image vulnerability scan
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: weather-app:latest
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          output: trivy-results.txt
 
-  #     - name: Upload Trivy Scan Report
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: trivy-report
-  #         path: trivy-results.txt
+      - name: Upload Trivy Scan Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-results.txt
 
-  #     - name: Push Docker image
-  #       if: success()
-  #       run: |
-  #         docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
-  #         docker push ghcr.io/${{ github.repository_owner }}/weather-app:latest
+      - name: Push Docker image
+        if: success()
+        run: |
+          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+          docker push ghcr.io/${{ github.repository_owner }}/weather-app:latest
 
 
   # Staging Job Deployment to Firebase Hosting
