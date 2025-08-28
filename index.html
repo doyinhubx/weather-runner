@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weather & Greeting App</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">WeatherX</div>
+      <ul class="nav-links">
+        <li>
+          <a href="https://github.com/doyinhubx/weather-runner" target="_blank">
+            <button style="font-weight: bold;">Source Code</button>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Welcome to WeatherX 🌤️</h1>
+      <p class="project-description">
+        A JavaScript project demonstrating CI/CD with GitHub Actions, test coverage reporting, Docker integration, enhanced branch-based environments and Agile Team Workflow Integration. 
+      </p>
+    </section>
+
+    <section class="weather">
+      <h2>Current Weather</h2>
+
+      <form onsubmit="event.preventDefault(); fetchCurrentWeather();">
+        <input type="text" id="city-input" placeholder="Enter city name" />
+        <button type="submit">Check Weather</button>
+      </form>
+
+      <p id="current-weather">Enter a city to see the weather.</p>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+  <p>
+    &copy; 2025 
+    <a href="https://dev.to/doyinelugbadebo" target="_blank" rel="noopener noreferrer">👨‍💻 Doyin ELUGBADEBO</a> 
+    | <a href="https://dev.to/doyinelugbadebo" target="_blank" rel="noopener noreferrer">📘 Read the guide</a> 
+    | <a href="https://www.buymeacoffee.com/doyinhubx" target="_blank" rel="noopener noreferrer">☕ Support this project</a> | app version 1.0.1
+  </p>
+</footer>
+
+  <script src="bundle.js"></script>
+
+  <script data-goatcounter="https://weather-app.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
