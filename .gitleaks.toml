@@ -7,14 +7,13 @@ description = "Custom API Key Pattern"
 regex = '''(?i)(?:key|api|token|secret)[\s:=]+([a-z0-9\-_]{20,})'''
 tags = ["key", "api-key"]
 
-[rule.entropy]
-min = 3.5
-max = 8.0
+# Reduces false positives
+entropy = 3.5
 
 # Add an allowlist to ignore env var placeholders or safe patterns
 [allowlist]
 description = "Ignore environment variable placeholders and Pulumi secret commands"
 regexes = [
-pattern1 = '''\$SERVICE_ACCOUNT_KEY'''  # Ignore $SERVICE_ACCOUNT_KEY
-pattern2 = '''pulumi config set --secret'''  # Ignore Pulumi secret commands
+	pattern1 = '''\$SERVICE_ACCOUNT_KEY'''  # Ignore $SERVICE_ACCOUNT_KEY
+	pattern2 = '''pulumi config set --secret'''  # Ignore Pulumi secret commands
 ]
