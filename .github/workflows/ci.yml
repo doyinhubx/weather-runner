@@ -55,12 +55,7 @@ jobs:
       - name: Run tests with coverage
         run: npm test -- --ci --reporters=default --coverage
 
-      # # 🚨 Gitleaks - Secrets Scanner
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      # Gitleaks - Secrets Scanner
       - name: Download Gitleaks
         run: |
           wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz

@@ -10,8 +10,8 @@ entropy = 3.5  # Reduces false positives
 
 # Add an allowlist to ignore env var placeholders or safe patterns
 [allowlist]
-description = "Ignore environment variable placeholders"
-
-[allowlist.regex]
+description = "Ignore environment variable placeholders and Pulumi secret commands"
+regexes = [
 pattern1 = '''\$SERVICE_ACCOUNT_KEY'''  # Ignore $SERVICE_ACCOUNT_KEY
 pattern2 = '''pulumi config set --secret'''  # Ignore Pulumi secret commands
+]
