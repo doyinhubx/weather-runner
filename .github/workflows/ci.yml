@@ -469,7 +469,7 @@ jobs:
           output: trivy-results.txt
 
       - name: Upload Trivy Scan Report
-        if: always()
+        #if: always()
         # This step will always run, whether the Trivy scan passes or fails.
         uses: actions/upload-artifact@v4
         with:
