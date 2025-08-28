@@ -9,7 +9,7 @@ tags = ["key", "api-key"]
 entropy = 3.5  # Reduces false positives
 
 # Add an allowlist to ignore env var placeholders or safe patterns
-[[allowlist]]
+[allowlist]
 description = "Ignore environment variable placeholders"
 regexes = [
   '''\$SERVICE_ACCOUNT_KEY''',  # Ignore $SERVICE_ACCOUNT_KEY
