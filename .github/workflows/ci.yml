@@ -80,6 +80,7 @@ jobs:
         with:
           config-path: .gitleaks.toml
           report-path: gitleaks.sarif # Correctly nested under 'with:'
+          report-format: sarif   # <--- Add this
         continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
 
       - name: Upload SARIF file
