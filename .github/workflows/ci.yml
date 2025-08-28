@@ -162,7 +162,7 @@ jobs:
 
   # # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
   # #-----------------------------------------------------------------------------
-  # production-deploy:
+  # prod-deploy:
   #   name: Deploy to GitHub Pages (Production env)
   #   needs: ci
   #   runs-on: ubuntu-latest
@@ -242,6 +242,74 @@ jobs:
   #         npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
   #       env:
   #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  #     # Slack Notifications
+  #     #---------------------------------------------------
+  #     - name: Notify Slack of Production Deploy Success
+  #       if: success()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+  #         SLACK_MESSAGE: |
+  #           ✅ *Production Deployment Completed*  
+  #           Repository: `${{ github.repository }}`  
+  #           Branch: `${{ github.ref_name }}`  
+  #           Commit: `${{ github.sha }}`  
+  #           URL: https://${{ github.repository_owner }}.github.io/weather-runner
+  #         SLACK_COLOR: good
+
+  #     - name: Notify Slack of Production Deploy Failure
+  #       if: failure()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+  #         SLACK_MESSAGE: |
+  #           ❌ *Production Deployment Failed*  
+  #           Repository: `${{ github.repository }}`  
+  #           Branch: `${{ github.ref_name }}`  
+  #           Commit: `${{ github.sha }}`  
+  #           Please check GitHub Actions logs.
+  #         SLACK_COLOR: danger
+
+  #     - name: Send Slack notification (Production)
+  #       run: |
+  #         curl -X POST -H 'Content-type: application/json' \
+  #         --data '{"text": ":rocket: *Prod Deploy Complete*\nRepository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\nCommit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nBranch: production"}' \
+  #         ${{ secrets.SLACK_WEBHOOK_PROD }}
+
+
+  #     # Discord Notifications
+  #     #--------------------------------------------------
+  #     - name: Notify Discord of Production Deploy Success
+  #       if: success()
+  #       env:
+  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+  #       run: |
+  #         curl -H "Content-Type: application/json" \
+  #           -X POST \
+  #           -d '{
+  #             "embeds": [{
+  #               "title": "✅ Production Deployment Completed",
+  #               "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n**URL:** https://${{ github.repository_owner }}.github.io/weather-runner",
+  #               "color": 65280
+  #             }]
+  #           }' $DISCORD_WEBHOOK
+
+  #     - name: Notify Discord of Production Deploy Failure
+  #       if: failure()
+  #       env:
+  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+  #       run: |
+  #         curl -H "Content-Type: application/json" \
+  #           -X POST \
+  #           -d '{
+  #             "embeds": [{
+  #               "title": "❌ Production Deployment Failed",
+  #               "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\nPlease check the GitHub Actions logs for details.",
+  #               "color": 16711680
+  #             }]
+  #           }' $DISCORD_WEBHOOK
+
 
 
   prod-build:
@@ -340,76 +408,6 @@ jobs:
         run: |
           echo "✅ Successfully rolled back to last stable build"
           echo "Rollback triggered because prod-deploy failed"
-
-
-
-  #     # Slack Notifications
-  #     #---------------------------------------------------
-  #     - name: Notify Slack of Production Deploy Success
-  #       if: success()
-  #       uses: rtCamp/action-slack-notify@v2
-  #       env:
-  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
-  #         SLACK_MESSAGE: |
-  #           ✅ *Production Deployment Completed*  
-  #           Repository: `${{ github.repository }}`  
-  #           Branch: `${{ github.ref_name }}`  
-  #           Commit: `${{ github.sha }}`  
-  #           URL: https://${{ github.repository_owner }}.github.io/weather-runner
-  #         SLACK_COLOR: good
-
-  #     - name: Notify Slack of Production Deploy Failure
-  #       if: failure()
-  #       uses: rtCamp/action-slack-notify@v2
-  #       env:
-  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
-  #         SLACK_MESSAGE: |
-  #           ❌ *Production Deployment Failed*  
-  #           Repository: `${{ github.repository }}`  
-  #           Branch: `${{ github.ref_name }}`  
-  #           Commit: `${{ github.sha }}`  
-  #           Please check GitHub Actions logs.
-  #         SLACK_COLOR: danger
-
-  #     - name: Send Slack notification (Production)
-  #       run: |
-  #         curl -X POST -H 'Content-type: application/json' \
-  #         --data '{"text": ":rocket: *Prod Deploy Complete*\nRepository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\nCommit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nBranch: production"}' \
-  #         ${{ secrets.SLACK_WEBHOOK_PROD }}
-
-
-  #     # Discord Notifications
-  #     #--------------------------------------------------
-  #     - name: Notify Discord of Production Deploy Success
-  #       if: success()
-  #       env:
-  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
-  #       run: |
-  #         curl -H "Content-Type: application/json" \
-  #           -X POST \
-  #           -d '{
-  #             "embeds": [{
-  #               "title": "✅ Production Deployment Completed",
-  #               "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n**URL:** https://${{ github.repository_owner }}.github.io/weather-runner",
-  #               "color": 65280
-  #             }]
-  #           }' $DISCORD_WEBHOOK
-
-  #     - name: Notify Discord of Production Deploy Failure
-  #       if: failure()
-  #       env:
-  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
-  #       run: |
-  #         curl -H "Content-Type: application/json" \
-  #           -X POST \
-  #           -d '{
-  #             "embeds": [{
-  #               "title": "❌ Production Deployment Failed",
-  #               "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\nPlease check the GitHub Actions logs for details.",
-  #               "color": 16711680
-  #             }]
-  #           }' $DISCORD_WEBHOOK
-
 
   # docker:
   #   name: Build & Push Docker Image
