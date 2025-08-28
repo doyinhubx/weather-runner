@@ -55,6 +55,23 @@ jobs:
       - name: Run tests with coverage
         run: npm test -- --ci --reporters=default --coverage
 
+      # # Gitleaks - Secrets Scanner
+      # - name: Gitleaks
+      #   uses: gitleaks/gitleaks-action@v2
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     config-path: .gitleaks.toml
+      #     report-path: gitleaks.sarif # <-- Add this line
+      #     # The action will automatically generate the sarif file in a location it can find.
+      #     # You can specify the output file if needed: report-path: gitleaks.sarif
+      #   continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
+
+      # - name: Upload SARIF file
+      #   uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: gitleaks.sarif # Match the report-path from the Gitleaks step
+
       # Gitleaks - Secrets Scanner
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2
@@ -62,15 +79,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           config-path: .gitleaks.toml
-          report-path: gitleaks.sarif # <-- Add this line
-          # The action will automatically generate the sarif file in a location it can find.
-          # You can specify the output file if needed: report-path: gitleaks.sarif
+          report-path: gitleaks.sarif # Correctly nested under 'with:'
         continue-on-error: true # Ensures SARIF is uploaded even if leaks are found
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: gitleaks.sarif # Match the report-path from the Gitleaks step
+          sarif_file: gitleaks.sarif
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
