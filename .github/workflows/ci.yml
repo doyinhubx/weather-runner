@@ -246,12 +246,12 @@ jobs:
             --from "{{GOATCOUNTER_URL}}" \
             --to "${{ secrets.GOATCOUNTER_URL }}"
 
-      - name:Deploy to GitHub Pages with peaceiris
+      - name: Deploy to GitHub Pages with peaceiris
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{secrets.GITHUB_TOKEN}}
-          publish_dir:./public
-}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+
 
   #     # Slack Notifications
   #     #---------------------------------------------------
