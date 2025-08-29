@@ -164,86 +164,94 @@ jobs:
 
   # # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
   # #-----------------------------------------------------------------------------
-  # prod-deploy:
-  #   name: Deploy to GitHub Pages (Production env)
-  #   needs: ci
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # only for main
-  #   environment:
-  #     name: production
-  #     url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
+  prod-deploy:
+    name: Deploy to GitHub Pages (Production env)
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # only for main
+    environment:
+      name: production
+      url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
 
-  #   steps:
-  #     # - name: Notify Slack of Awaiting Production Approval
-  #     #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #     #   uses: rtCamp/action-slack-notify@v2
-  #     #   env:
-  #     #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
-  #     #     SLACK_MESSAGE: |
-  #     #       🛑 *Production Deployment Pending Approval*  
-  #     #       Repository: `${{ github.repository }}`  
-  #     #       Branch: `${{ github.ref_name }}`  
-  #     #       Commit: `${{ github.sha }}`  
-  #     #       Please approve in GitHub Environments → Production.
-  #     #     SLACK_COLOR: warning
+    steps:
+      # - name: Notify Slack of Awaiting Production Approval
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+      #     SLACK_MESSAGE: |
+      #       🛑 *Production Deployment Pending Approval*  
+      #       Repository: `${{ github.repository }}`  
+      #       Branch: `${{ github.ref_name }}`  
+      #       Commit: `${{ github.sha }}`  
+      #       Please approve in GitHub Environments → Production.
+      #     SLACK_COLOR: warning
 
 
-  #     # - name: Notify Discord of Awaiting Production Approval
-  #     #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #     #   env:
-  #     #     DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
-  #     #   run: |
-  #     #     curl -H "Content-Type: application/json" \
-  #     #       -X POST \
-  #     #       -d '{
-  #     #         "embeds": [{
-  #     #           "title": "🛑 Production Deployment Pending Approval",
-  #     #           "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\n🔒 Please approve this deployment via **GitHub → Environments → Production**.",
-  #     #           "color": 16753920
-  #     #         }]
-  #     #       }' $DISCORD_WEBHOOK
+      # - name: Notify Discord of Awaiting Production Approval
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   env:
+      #     DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+      #   run: |
+      #     curl -H "Content-Type: application/json" \
+      #       -X POST \
+      #       -d '{
+      #         "embeds": [{
+      #           "title": "🛑 Production Deployment Pending Approval",
+      #           "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\n🔒 Please approve this deployment via **GitHub → Environments → Production**.",
+      #           "color": 16753920
+      #         }]
+      #       }' $DISCORD_WEBHOOK
 
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-  #     # Allows GitHub Actions caching
-  #     - name: Cache npm dependencies
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.npm
-  #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-node-
+      # Allows GitHub Actions caching
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-  #     - name: Install dependencies
-  #       run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-  #     - name: Configure git user
-  #       run: |
-  #         git config user.name "github-actions[bot]"
-  #         git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-  #     - name: Build project
-  #       run: npm run build
+      - name: Build project
+        run: npm run build
 
-  #     # Save build artifact for rollback use
-  #     - uses: actions/upload-artifact@v4
-  #       if: success()
-  #       with:
-  #         name: static-site-public
-  #         path: ./public
-  #         retention-days: 7
+      # # Save build artifact for rollback use
+      # - uses: actions/upload-artifact@v4
+      #   if: success()
+      #   with:
+      #     name: static-site-public
+      #     path: ./public
+      #     retention-days: 7
 
-  #     - name: Deploy to GitHub Pages
-  #       run: |
-  #         npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Inject GoatCounter URL
+        run: |
+          npx replace-in-file \
+            --files "public/index.html" \
+            --from "{{GOATCOUNTER_URL}}" \
+            --to "${{ secrets.GOATCOUNTER_URL }}"
+
+      - name:Deploy to GitHub Pages with peaceiris
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        publish_dir:./public
+}
 
   #     # Slack Notifications
   #     #---------------------------------------------------
