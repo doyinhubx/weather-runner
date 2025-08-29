@@ -1,6 +1,5 @@
 // scripts/inject-goatcounter.js
-import replace from 'replace-in-file';
-import fs from 'fs';
+const replace = require('replace-in-file');
 
 const GOATCOUNTER_URL = process.env.GOATCOUNTER_URL;
 
