@@ -187,7 +187,6 @@ jobs:
       #       Please approve in GitHub Environments → Production.
       #     SLACK_COLOR: warning
 
-
       # - name: Notify Discord of Awaiting Production Approval
       #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       #   env:
