@@ -240,7 +240,7 @@ jobs:
       #     retention-days: 7
 
       - name: Inject GoatCounter URL
-        run: npx replace-in-file --files "public/index.html" --from "{{GOATCOUNTER_URL}}" --to "$GOATCOUNTER_URL"
+        run: node scripts/inject-goatcounter.js
         env:
           GOATCOUNTER_URL: ${{ secrets.GOATCOUNTER_URL }}
 
