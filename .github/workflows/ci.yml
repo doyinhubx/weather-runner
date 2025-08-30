@@ -242,6 +242,7 @@ jobs:
         run: node scripts/inject-goatcounter.js
         env:
           GOATCOUNTER_URL: ${{ secrets.GOATCOUNTER_URL }}
+          PINGDOM_ID: ${{ secrets.PINGDOM_ID }}
 
       - name: Deploy to GitHub Pages with peaceiris
         uses: peaceiris/actions-gh-pages@v3
