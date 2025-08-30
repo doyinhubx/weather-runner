@@ -1,5 +1,5 @@
 // scripts/inject-goatcounter.js
-const replace = require('replace-in-file');
+const { replaceInFileSync } = require('replace-in-file');
 
 const GOATCOUNTER_URL = process.env.GOATCOUNTER_URL;
 
@@ -15,7 +15,8 @@ const options = {
 };
 
 try {
-  const results = replace.sync(options);
+  // Use the correct function name: replaceInFileSync
+  const results = replaceInFileSync(options);
   console.log('Replaced in files:', results.join(', '));
 } catch (error) {
   console.error('Error replacing in files:', error);
