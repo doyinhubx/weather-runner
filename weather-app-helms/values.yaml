@@ -127,7 +127,7 @@
 replicaCount: 1
 
 image:
-  repository: eslintpurity/weather-app
+  repository: weather-app
   tag: latest
   pullPolicy: IfNotPresent
 
