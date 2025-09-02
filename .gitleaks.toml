@@ -17,3 +17,4 @@ regexes = [
     '''\$SERVICE_ACCOUNT_KEY''',       	 # Ignore $SERVICE_ACCOUNT_KEY
     '''pulumi config set --secret.*'''   # Ignore Pulumi secret commands
 ]
+

@@ -1,7 +1,7 @@
 {
-  "name": "ci-cd-demo",
+  "name": "javascriptweatherapp-cicd",
   "version": "1.0.0",
-  "description": "Node.js CI/CD Demo",
+  "description": "JavaScript CI/CD for a Weather Application",
   "homepage": "https://doyinhubx.github.io/weather-runner",
   "main": "index.js",
   "type": "commonjs",
