@@ -58,7 +58,9 @@ jobs:
         run: |
           helm upgrade --install weather-app weather-app-helms \
             --namespace helms --create-namespace \
-            --set image.tag=good
+            --set image.repository=weather-app \
+            --set image.tag=good \
+            --set image.pullPolicy=IfNotPresent
           kubectl apply -f k8s/argocd-apps/weather-app-helm.yaml
           sleep 30
           kubectl get pods -n helms
@@ -68,7 +70,9 @@ jobs:
         run: |
           helm upgrade weather-app weather-app-helms \
             --namespace helms \
-            --set image.tag=bad
+            --set image.repository=weather-app \
+            --set image.tag=bad \
+            --set image.pullPolicy=IfNotPresent
           sleep 30
           kubectl get pods -n helms
 
