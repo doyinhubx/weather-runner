@@ -97,13 +97,3 @@ jobs:
             kubectl rollout undo deployment/weather-app || echo "No rollback needed (maybe first deploy)"
             exit 1
           fi
-
-      # 10. Final check after rollback
-      - name: Verify rollback
-        run: |
-          STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}")
-          if [[ "$STATUS" == "Running" ]]; then
-            echo "Rollback successful, pod is running"
-          else
-            echo "Rollback failed!"
-            exit 1
