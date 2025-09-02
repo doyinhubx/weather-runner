@@ -17,17 +17,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 3. Install Kind (Kubernetes in Docker)
-      - name: Install Kind
-        uses: engineerd/setup-kind@v0.13.0
-        with:
-          version: v0.23.0
-
-      # 4. Create Kind cluster
-      - name: Create Kind Cluster
+      # 3. Install kubectl, kind, and Helm
+      - name: Install Kubernetes tools
         run: |
-          kind create cluster --name weather-cluster
-          kubectl cluster-info --context kind-weather-cluster
+          curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # 4. Create a temporary Kind cluster
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name test-cluster
 
       # 5. Install ArgoCD in Kind cluster
       - name: Install ArgoCD
