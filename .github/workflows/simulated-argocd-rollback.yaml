@@ -56,7 +56,7 @@ jobs:
       # 8. First deployment (Good Image) via Helm + ArgoCD
       - name: Deploy Good Image
         run: |
-          helm upgrade --install weather-app weather-app-helms \
+          helm upgrade --install weather-app-helms weather-app-helms \
             --namespace helms --create-namespace \
             --set image.repository=weather-app \
             --set image.tag=good \
@@ -68,7 +68,7 @@ jobs:
       # 9. Second deployment (Bad Image)
       - name: Deploy Bad Image
         run: |
-          helm upgrade weather-app weather-app-helms \
+          helm upgrade weather-app-helms weather-app-helms \
             --namespace helms \
             --set image.repository=weather-app \
             --set image.tag=bad \
@@ -79,7 +79,7 @@ jobs:
       # 10. Third deployment (Good Image again)
       - name: Deploy Good Image Again
         run: |
-          helm upgrade weather-app weather-app-helms \
+          helm upgrade weather-app-helms weather-app-helms \
             --namespace helms \
             --set image.tag=good
           sleep 30
@@ -88,7 +88,7 @@ jobs:
       # 11. Verification step
       - name: Verify ArgoCD Reconciliation
         run: |
-          FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+          FINAL_IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
           echo "Final deployed image: $FINAL_IMAGE"
           if [[ "$FINAL_IMAGE" == *":good" ]]; then
             echo "✅ ArgoCD successfully reconciled back to good image!"

@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: weather-app
+  name: weather-app-helms
   namespace: argocd
 spec:
   project: default
