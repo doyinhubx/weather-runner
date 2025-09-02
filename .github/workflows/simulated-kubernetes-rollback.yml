@@ -75,15 +75,27 @@ jobs:
             --set image.tag=failing \
             --wait --timeout 3m || echo "Deployment failed as expected"
 
-      # 9. Check pods and perform automatic rollback
-      - name: Automatic rollback
+      # 9. Post-Deployment Health Check & Automated Rollback
+      - name: Verify Deployment Health and Rollback if Failed
         run: |
-          STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}")
-          if [[ "$STATUS" != "Running" ]]; then
-            echo "Rollback triggered due to failing pod"
-            kubectl rollout undo deployment/weather-app
-          else
-            echo "No rollback needed"
+          echo "Checking pod health..."
+          FAILED=1
+          for i in {1..12}; do
+            STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}" 2>/dev/null || echo "NotReady")
+            echo "Current pod status: $STATUS"
+            if [[ "$STATUS" == "Running" ]]; then
+              echo "Pod is running"
+              FAILED=0
+              break
+            fi
+            echo "Waiting for pod to be ready... ($i/12)"
+            sleep 10
+          done
+
+          if [[ $FAILED -eq 1 ]]; then
+            echo "Deployment failed health check! Rolling back..."
+            kubectl rollout undo deployment/weather-app || echo "No rollback needed (maybe first deploy)"
+            exit 1
           fi
 
       # 10. Final check after rollback
