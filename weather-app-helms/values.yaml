@@ -128,6 +128,7 @@ replicaCount: 1
 
 image:
   repository: weather-app
+  tag: local
   pullPolicy: IfNotPresent
 
 service:
