@@ -81,10 +81,21 @@ jobs:
           sleep 30
           kubectl get pods -n helms
 
-       # 11. Verify final state
+      # 11. Verification step
+      - name: Verify ArgoCD Reconciliation
+        run: |
+          FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+          echo "Final deployed image: $FINAL_IMAGE"
+          if [[ "$FINAL_IMAGE" == *":good" ]]; then
+            echo "✅ ArgoCD successfully reconciled back to good image!"
+          else
+            echo "❌ ArgoCD did not reconcile correctly!"
+            exit 1
+          fi
+
+      # 12. Verify final state
       - name: Final Pod Status
         run: kubectl get pods -n helms -o wide
-
 
 
     
