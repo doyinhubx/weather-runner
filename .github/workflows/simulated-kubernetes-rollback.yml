@@ -1,61 +1,97 @@
-name: Simulate Kubernetes Deployment with Rollback
+name: Deploy and Test Rollback on Kind
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy-simulate:
+  deploy-rollback:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout code
+      # 1. Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Install Docker (already on GitHub runners) and kind
-      - name: Install kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.25.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
-          kind version
+      # 2. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      # 3. Create a temporary Kubernetes cluster
-      - name: Create kind cluster
+      # 3. Install kubectl, kind, and Helm
+      - name: Install Kubernetes tools
         run: |
-          kind create cluster --name ci-cluster
-          kubectl cluster-info
+          curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 4. Build Docker image for the app (simulate failure with bad tag)
-      - name: Build broken Docker image
+      # 4. Create a temporary Kind cluster
+      - name: Create Kind cluster
         run: |
-          docker build -t weather-app:broken .
+          kind create cluster --name test-cluster
 
-      # 5. Load image into kind cluster
-      - name: Load image into kind
-        run: kind load docker-image weather-app:broken --name ci-cluster
-
-      # 6. Deploy with Helm (broken image)
-      - name: Deploy broken version
+      # 5. Load Docker images into Kind
+      - name: Build and load working image
         run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
+          docker build -f Dockerfile.working -t weather-app:working .
+          kind load docker-image weather-app:working --name test-cluster
+
+      - name: Build and load failing image
+        run: |
+          docker build -f Dockerfile.failing -t weather-app:failing .
+          kind load docker-image weather-app:failing --name test-cluster
+
+      # 6. Deploy working image via Helm
+      - name: Deploy working image
+        run: |
           helm upgrade --install weather-app ./weather-app-helms \
             --namespace default \
-            --create-namespace \
-            --set image.tag=broken \
-            --wait --timeout 1m || true  # Allow failure
+            --set image.repository=weather-app \
+            --set image.tag=working \
+            --wait --timeout 3m
 
-      # 7. Check pod health and rollback if failed
-      - name: Health check & rollback
+      # 7. Verify deployment succeeded
+      - name: Verify deployment
+        run: |
+          echo "Checking pod health..."
+          for i in {1..12}; do
+            STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}")
+            if [[ "$STATUS" == "Running" ]]; then
+              echo "Pod is running"
+              exit 0
+            fi
+            echo "Waiting for pod..."
+            sleep 10
+          done
+          echo "Initial deployment failed!"
+          exit 1
+
+      # 8. Deploy failing image to simulate failure
+      - name: Deploy failing image
+        run: |
+          helm upgrade --install weather-app ./weather-app-helms \
+            --namespace default \
+            --set image.repository=weather-app \
+            --set image.tag=failing \
+            --wait --timeout 3m || echo "Deployment failed as expected"
+
+      # 9. Check pods and perform automatic rollback
+      - name: Automatic rollback
         run: |
           STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}")
-          if [ "$STATUS" != "Running" ]; then
-            echo "Deployment failed! Rolling back..."
+          if [[ "$STATUS" != "Running" ]]; then
+            echo "Rollback triggered due to failing pod"
             kubectl rollout undo deployment/weather-app
           else
-            echo "Deployment succeeded!"
+            echo "No rollback needed"
           fi
 
-      # 8. Delete kind cluster (cleanup)
-      - name: Cleanup
-        run: kind delete cluster --name ci-cluster
+      # 10. Final check after rollback
+      - name: Verify rollback
+        run: |
+          STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}")
+          if [[ "$STATUS" == "Running" ]]; then
+            echo "Rollback successful, pod is running"
+          else
+            echo "Rollback failed!"
+            exit 1

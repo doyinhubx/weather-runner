@@ -1,0 +1,8 @@
+# Minimal Alpine container to simulate failure
+FROM node:20-alpine
+
+WORKDIR /app
+COPY . .
+
+# Simulate a failing container
+CMD ["sh", "-c", "exit 1"]
