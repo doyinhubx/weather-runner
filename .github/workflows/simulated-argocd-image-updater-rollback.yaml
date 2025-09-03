@@ -26,25 +26,23 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 4. Create a temporary Kind cluster
+      # 4. Create a temporary Kind cluster with local registry
       - name: Create Kind cluster
         run: |
-          kind create cluster --name argocd-cluster
+          cat <<EOF | kind create cluster --name argocd-cluster --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          containerdConfigPatches:
+          - |-
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry:5000"]
+              endpoint = ["http://registry:5000"]
+          EOF
 
       # 5. Start a local Docker registry for Image Updater to watch
       - name: Start Local Registry
         run: |
-          # Start registry container if not already running
-          docker run -d --restart=always --name registry -p 5000:5000 registry:2 || true
-
-          # Connect registry to kind network
+          docker run -d -p 5000:5000 --name registry registry:2
           docker network connect kind registry || true
-
-          # Make sure /etc/hosts inside runner resolves "registry" -> 127.0.0.1
-          echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
-
-          # Verify registry is reachable
-          curl -s http://registry:5000/v2/_catalog || echo "Registry not yet ready"
 
       # 6. Install ArgoCD
       - name: Install ArgoCD
