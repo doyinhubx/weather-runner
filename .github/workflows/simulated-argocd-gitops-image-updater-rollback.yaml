@@ -92,29 +92,29 @@ jobs:
       - name: Deploy Good Image
         run: |
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git pull --rebase
-          git commit -am "Deploy good image" || echo "No changes"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add weather-app-helms/values.yaml
+          git commit -m "Deploy good image" || echo "No changes to commit"
+          git pull --rebase --autostash
           git push
 
       - name: Deploy Bad Image
         run: |
           sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
-          git pull --rebase
-          git commit -am "Deploy bad image" || echo "No changes"
+          git add weather-app-helms/values.yaml
+          git commit -m "Deploy bad image" || echo "No changes to commit"
+          git pull --rebase --autostash
           git push
-          echo "⏳ Waiting for ArgoCD to reconcile bad image..."
-          sleep 60
 
       - name: Deploy Good Image Again
         run: |
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git pull --rebase
-          git commit -am "Deploy good image again" || echo "No changes"
+          git add weather-app-helms/values.yaml
+          git commit -m "Deploy good image again" || echo "No changes to commit"
+          git pull --rebase --autostash
           git push
-          echo "⏳ Waiting for ArgoCD to reconcile good image..."
-          sleep 60
+
 
       # 10. Verify Image Reconciliation
       - name: Verify final deployment
