@@ -60,7 +60,7 @@ jobs:
           kubectl create secret generic image-updater-git-creds \
             --namespace=argocd \
             --from-literal=username=github-actions \
-            --from-literal=password=${{ secrets.GITHUB_TOKEN }} \
+            --from-literal=password=${{ secrets.GH_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
       # 9. Apply ArgoCD Application with proper Image Updater config
