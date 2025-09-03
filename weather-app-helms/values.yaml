@@ -127,8 +127,8 @@
 replicaCount: 1
 
 image:
-  repository: registry:5000/weather-app
-  tag: "good"
+  repository: eslintpurity/weather-app
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 service:

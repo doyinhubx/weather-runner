@@ -7,13 +7,20 @@ on:
 jobs:
   deploy-simulation:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Add timeout to prevent hanging
 
     steps:
       # 1. Checkout repository
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      # 2. Install kubectl, kind, helm
+      # 2. Configure Git globally
+      - name: Configure Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      # 3. Install Kubernetes tools
       - name: Install Kubernetes tools
         run: |
           curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
@@ -22,28 +29,29 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 3. Create Kind cluster
+      # 4. Create Kind cluster
       - name: Create Kind cluster
         run: kind create cluster --name argocd-cluster
 
-      # 4. Install ArgoCD
+      # 5. Install ArgoCD
       - name: Install ArgoCD
         run: |
           kubectl create namespace argocd
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-          kubectl wait --for=condition=available --timeout=180s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
 
-      # 5. Install ArgoCD Image Updater
+      # 6. Install ArgoCD Image Updater
       - name: Install ArgoCD Image Updater
         run: |
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=180s deployment/argocd-image-updater -n argocd
 
-      # 6. Pre-create target namespace
+      # 7. Pre-create target namespace
       - name: Create helms namespace
         run: kubectl create namespace helms || true
 
-      # 7. Apply ArgoCD Application with Image Updater annotations
+      # 8. Apply ArgoCD Application
       - name: Apply Application manifest
         run: |
           kubectl apply -f - <<EOF
@@ -71,7 +79,13 @@ jobs:
               automated: {}
           EOF
 
-      # 8. Build & push Good, Bad, and Good images to Docker Hub
+      # 9. Wait for initial sync
+      - name: Wait for initial application sync
+        run: |
+          sleep 30
+          kubectl wait --for=condition=Healthy --timeout=300s application/weather-app -n argocd
+
+      # 10. Build & push images
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -88,7 +102,7 @@ jobs:
           docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
           docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 9. Disable Image Updater temporarily
+      # 11. Disable Image Updater
       - name: Disable Image Updater
         run: |
           kubectl patch application weather-app -n argocd --type merge -p '{
@@ -98,50 +112,52 @@ jobs:
               }
             }
           }'
-          sleep 10
+          sleep 15
 
-      # 10. Update Git values.yaml → Good → Bad → Good
+      # 12. Good → Bad → Good simulation
       - name: Deploy Good Image
         run: |
-          git pull origin main
+          git pull --rebase origin main
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git config user.name github-actions
-          git config user.email github-actions@github.com
           git add weather-app-helms/values.yaml
-          git commit -m "Deploy good image"
+          git commit -m "Deploy good image" || echo "No changes to commit"
           git push origin main
           echo "⏳ Waiting for initial good deployment..."
           sleep 60
 
       - name: Deploy Bad Image
         run: |
-          git pull --rebase origin main  # Ensure local is up-to-date
+          git pull --rebase origin main
           sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add weather-app-helms/values.yaml
-          git commit -m "Deploy bad image"
-          git push origin main
+          
+          if git diff --quiet --exit-code; then
+            echo "No changes to commit"
+          else
+            git add weather-app-helms/values.yaml
+            git commit -m "Deploy bad image"
+            git push origin main
+          fi
           
           echo "⏳ Waiting for bad image to fail..."
-          # Wait for failure (should timeout)
-          kubectl rollout status deployment/weather-app -n helms --timeout=120s && \
-            echo "❌ Bad image should have failed!" && exit 1 || \
+          timeout 120s bash -c '
+            while kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type==\"Available\")].status}" | grep -q "True"; do
+              echo "Deployment still available, waiting..."
+              sleep 10
+            done
             echo "✅ Bad image deployment failed as expected"
+          ' || (echo "❌ Bad image should have failed!" && exit 1)
 
       - name: Deploy Good Image Again
         run: |
-          git pull origin main
+          git pull --rebase origin main
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git config user.name github-actions
-          git config user.email github-actions@github.com
           git add weather-app-helms/values.yaml
-          git commit -m "Deploy good image again"
+          git commit -m "Deploy good image again" || echo "No changes to commit"
           git push origin main
           echo "⏳ Waiting for good image reconciliation..."
           sleep 90
 
-      # 11. Re-enable Image Updater
+      # 13. Re-enable Image Updater
       - name: Re-enable Image Updater
         run: |
           kubectl patch application weather-app -n argocd --type merge -p '{
@@ -151,9 +167,9 @@ jobs:
               }
             }
           }'
-          sleep 10
+          sleep 15
 
-      # 12. Verify Image Reconciliation
+      # 14. Verify final deployment
       - name: Verify final deployment
         run: |
           echo "⏳ Waiting for weather-app Deployment to be ready..."
@@ -166,5 +182,11 @@ jobs:
             echo "✅ ArgoCD successfully reconciled back to good image!"
           else
             echo "❌ Reconciliation failed! Expected 'good', got: $FINAL_IMAGE"
+            kubectl describe deployment weather-app -n helms
             exit 1
           fi
+
+      # 15. Cleanup
+      - name: Cleanup Kind cluster
+        if: always()
+        run: kind delete cluster --name argocd-cluster || true
