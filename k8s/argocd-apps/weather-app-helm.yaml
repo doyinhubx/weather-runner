@@ -3,12 +3,15 @@ kind: Application
 metadata:
   name: weather-app-helms
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: weather-app=weather-app
+    argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
 spec:
   project: default
   source:
     repoURL: https://github.com/doyinhubx/weather-runner.git
     targetRevision: main
-    path: weather-app-helms   # path to your Helm chart
+    path: weather-app-helms
     helm:
       valueFiles:
         - values.yaml

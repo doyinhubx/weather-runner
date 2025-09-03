@@ -1,0 +1,111 @@
+name: Simulate ArgoCD Image Updater
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  image-updater-simulation:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      # 2. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Install kubectl, kind, and Helm
+      - name: Install Kubernetes tools
+        run: |
+          curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # 4. Create a temporary Kind cluster
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name argocd-cluster
+
+      # 5. Install ArgoCD
+      - name: Install ArgoCD
+        run: |
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
+
+      # 6. Install ArgoCD Image Updater
+      - name: Install ArgoCD Image Updater
+        run: |
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
+
+      # 7. Build and load initial (1.0.0) image
+      - name: Build Initial Image
+        run: |
+          docker build -t weather-app:1.0.0 -f Dockerfile.good .
+          kind load docker-image weather-app:1.0.0 --name argocd-cluster
+
+      # 8. Deploy Application with ArgoCD + annotations for Image Updater
+      - name: Deploy ArgoCD Application
+        run: |
+          kubectl apply -f - <<'EOF'
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: weather-app-helms
+            namespace: argocd
+            annotations:
+              argocd-image-updater.argoproj.io/image-list: weather-app=weather-app
+              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/doyinhubx/weather-runner.git
+              targetRevision: main
+              path: weather-app-helms
+              helm:
+                values: |
+                  image:
+                    repository: weather-app
+                    tag: "1.0.0"
+                    pullPolicy: IfNotPresent
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: helms
+            syncPolicy:
+              automated:
+                selfHeal: true
+                prune: true
+          EOF
+          kubectl wait --for=condition=available --timeout=120s deployment/weather-app -n helms || true
+
+      # 9. Build and load newer (2.0.0) image
+      - name: Build Newer Image
+        run: |
+          docker build -t weather-app:2.0.0 -f Dockerfile.good .
+          kind load docker-image weather-app:2.0.0 --name argocd-cluster
+
+      # 10. Wait for Image Updater to detect new tag
+      - name: Wait for ArgoCD Image Updater
+        run: |
+          echo "⏳ Waiting up to 90s for Image Updater to update the Application..."
+          for i in {1..9}; do
+            FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" || echo "")
+            echo "Current image: $FINAL_IMAGE"
+            if [[ "$FINAL_IMAGE" == *":2.0.0" ]]; then
+              echo "✅ Image Updater successfully updated to 2.0.0!"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Image Updater did not update to 2.0.0 in time"
+          exit 1
+
+      # 11. Final pod status
+      - name: Final Pod Status
+        run: kubectl get pods -n helms -o wide
