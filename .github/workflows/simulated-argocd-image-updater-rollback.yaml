@@ -26,7 +26,7 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 4: Create a temporary Kind cluster
+      # 4. Create a temporary Kind cluster with a local registry
       - name: Create Kind cluster
         run: |
           cat <<EOF | kind create cluster --name argocd-cluster --config=-
@@ -45,15 +45,22 @@ jobs:
               insecure_skip_verify = true
           EOF
 
-      # 5. Create the argocd namespace 
+      # 5. Create the argocd namespace FIRST to prevent 'not found' errors
       - name: Create ArgoCD Namespace
         run: kubectl create namespace argocd
 
-      # 6. Start a local Docker registry AND apply the Image Updater ConfigMap
+      # 6. Configure Docker daemon for insecure registry before any push
+      - name: Configure Docker Insecure Registry
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"insecure-registries": ["registry:5000"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      # 7. Start a local Docker registry and configure the Image Updater
       - name: Start Local Registry & Configure Image Updater
         run: |
           docker run -d --restart=always --name registry registry:2
-          # It's better to load the registry image after the container starts
+          echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
           kind load docker-image --name argocd-cluster registry:2
           kubectl apply -f - <<EOF
           apiVersion: v1
@@ -69,39 +76,39 @@ jobs:
                 insecure: true
           EOF
 
-      # 7. Install ArgoCD
+      # 8. Install ArgoCD
       - name: Install ArgoCD
         run: |
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
 
-      # 8. Install ArgoCD Image Updater
+      # 9. Install ArgoCD Image Updater
       - name: Install ArgoCD Image Updater
         run: |
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
 
-      # 9. Build and push initial (1.0.0) image to local registry
+      # 10. Build and push initial (1.0.0) image to local registry
       - name: Build Initial Image
         run: |
           docker build -t registry:5000/weather-app:1.0.0 -f Dockerfile.good .
           docker push registry:5000/weather-app:1.0.0
 
-      # 10. Create helms namespace
+      # 11. Create helms namespace
       - name: Create helms namespace
         run: kubectl create namespace helms || true
 
-      # 11. Deploy Helm Release (ensures Deployment exists)
+      # 12. Deploy Helm Release (ensures Deployment exists)
       - name: Deploy Helm Release
         run: |
           helm upgrade --install weather-app-helms ./weather-app-helms \
             --namespace helms \
             --set fullnameOverride=weather-app-helms \
-            --set image.repository=registry:5000/weather-app \
+            --set image.repository=kind-registry:5000/weather-app \
             --set image.tag=1.0.0 \
             --set image.pullPolicy=IfNotPresent
 
-      # 12: Apply ArgoCD Application with Image Updater annotations
+      # 13. Apply ArgoCD Application with Image Updater annotations
       - name: Deploy ArgoCD Application
         run: |
           kubectl apply -f - <<'EOF'
@@ -136,13 +143,13 @@ jobs:
                 prune: true
           EOF
 
-      # 13. Build and push newer (2.0.0) image to local registry
+      # 14. Build and push newer (2.0.0) image to local registry
       - name: Build Newer Image
         run: |
           docker build -t registry:5000/weather-app:2.0.0 -f Dockerfile.good .
           docker push registry:5000/weather-app:2.0.0
 
-      # 14. Wait for Image Updater to detect new tag
+      # 15. Wait for Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
         run: |
           echo "⏳ Waiting up to 120s for Image Updater to update the Application..."
@@ -158,6 +165,11 @@ jobs:
           echo "❌ Image Updater did not update to 2.0.0 in time"
           exit 1
 
-      # 15. Final pod status
+      # 16. Final pod status
       - name: Final Pod Status
         run: kubectl get pods -n helms -o wide
+
+      # 17. Cleanup (always run)
+      - name: Cleanup
+        if: always()
+        run: kind delete cluster --name argocd-cluster
