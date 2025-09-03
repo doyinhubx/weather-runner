@@ -74,15 +74,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push Good Image
+      - name: Build and Push Good Image
         run: |
-          docker build -t docker.io/${{ github.repository_owner }}/weather-app:good -f Dockerfile.good .
-          docker push docker.io/${{ github.repository_owner }}/weather-app:good
+          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good -f Dockerfile.good .
+          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good
 
       - name: Build & Push Bad Image
         run: |
-          docker build -t docker.io/${{ github.repository_owner }}/weather-app:bad -f Dockerfile.bad .
-          docker push docker.io/${{ github.repository_owner }}/weather-app:bad
+          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
+          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
       # 8. Update Git values.yaml → Good → Bad → Good
       - name: Deploy Good Image
