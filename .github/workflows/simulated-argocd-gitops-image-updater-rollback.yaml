@@ -147,6 +147,14 @@ jobs:
       # 13. Configure Image Updater registry access
       - name: Configure Image Updater registry access
         run: |
+          # Create secret for Docker Hub credentials
+          kubectl create secret docker-registry dockerhub-creds \
+            --namespace=argocd \
+            --docker-server=https://index.docker.io/v1/ \
+            --docker-username=${{ secrets.DOCKERHUB_USERNAME }} \
+            --docker-password=${{ secrets.DOCKERHUB_TOKEN }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
           # Create configmap for registry configuration
           kubectl apply -n argocd -f - <<EOF
           apiVersion: v1
@@ -161,17 +169,12 @@ jobs:
                 prefix: docker.io
                 ping: yes
                 insecure: no
-                credentials: env:DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+                credentials: secret:argocd/dockerhub-creds
             commit.template: |
               build(docker): update image {{ .AppName }} to {{ .ImageAlias }}:{{ .ImageTag }}
               
               This is an automated commit from Argo CD Image Updater.
           EOF
-          
-          # Set environment variables for Docker Hub credentials
-          kubectl set env deployment/argocd-image-updater -n argocd \
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} \
-            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
           
           # Restart Image Updater to apply config
           kubectl rollout restart deployment argocd-image-updater -n argocd
