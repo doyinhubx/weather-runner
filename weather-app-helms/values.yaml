@@ -127,8 +127,8 @@
 replicaCount: 1
 
 image:
-  repository: eslintpurity/weather-app
-  tag: "good"
+  repository: docker.io/eslintpurity/weather-app
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 service:
