@@ -88,53 +88,83 @@ jobs:
           docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
           docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 9. Update Git values.yaml → Good → Bad → Good
+      # 9. Disable Image Updater temporarily
+      - name: Disable Image Updater
+        run: |
+          kubectl patch application weather-app -n argocd --type merge -p '{
+            "metadata": {
+              "annotations": {
+                "argocd-image-updater.argoproj.io/weather-app.update-strategy": "none"
+              }
+            }
+          }'
+          sleep 10
+
+      # 10. Update Git values.yaml → Good → Bad → Good
       - name: Deploy Good Image
         run: |
+          git pull origin main
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git pull --rebase
-          git commit -am "Deploy good image" || echo "No changes"
-          git push
+          git add weather-app-helms/values.yaml
+          git commit -m "Deploy good image"
+          git push origin main
+          echo "⏳ Waiting for initial good deployment..."
+          sleep 60
 
       - name: Deploy Bad Image
         run: |
+          git pull origin main
           sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add weather-app-helms/values.yaml
           git commit -m "Deploy bad image"
-          git pull --rebase
-          git push
-          echo "⏳ Waiting for ArgoCD to reconcile bad image..."
-          sleep 60
-          # Verify that the 'bad' image deployment fails
-          echo "⏳ Waiting for weather-app deployment to fail..."
-          kubectl wait --for=condition=Progressing=false --timeout=120s deployment/weather-app -n helms || true
-          echo "✅ Bad image deployment has failed or is stuck, as expected."
+          git push origin main
+          
+          echo "⏳ Waiting for bad image to fail..."
+          # Wait for failure (should timeout)
+          kubectl rollout status deployment/weather-app -n helms --timeout=120s && \
+            echo "❌ Bad image should have failed!" && exit 1 || \
+            echo "✅ Bad image deployment failed as expected"
 
       - name: Deploy Good Image Again
         run: |
+          git pull origin main
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+          git config user.name github-actions
+          git config user.email github-actions@github.com
           git add weather-app-helms/values.yaml
-          git commit -m "Deploy good image again" || echo "No changes"
-          git pull --rebase
-          git push
-          echo "⏳ Waiting for ArgoCD to reconcile good image..."
-          sleep 90 # Increased sleep time
-          
-      # 10. Verify Image Reconciliation
+          git commit -m "Deploy good image again"
+          git push origin main
+          echo "⏳ Waiting for good image reconciliation..."
+          sleep 90
+
+      # 11. Re-enable Image Updater
+      - name: Re-enable Image Updater
+        run: |
+          kubectl patch application weather-app -n argocd --type merge -p '{
+            "metadata": {
+              "annotations": {
+                "argocd-image-updater.argoproj.io/weather-app.update-strategy": "latest"
+              }
+            }
+          }'
+          sleep 10
+
+      # 12. Verify Image Reconciliation
       - name: Verify final deployment
         run: |
           echo "⏳ Waiting for weather-app Deployment to be ready..."
-          kubectl wait --for=condition=available deployment/weather-app -n helms --timeout=300s # Increased timeout
-
+          kubectl rollout status deployment/weather-app -n helms --timeout=300s
+          
           FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
           echo "Final deployed image: $FINAL_IMAGE"
-          if [[ "$FINAL_IMAGE" == *":good" ]]; then
-            echo "✅ ArgoCD Image Updater reconciled back to good image!"
+          
+          if [[ "$FINAL_IMAGE" == *"good" ]]; then
+            echo "✅ ArgoCD successfully reconciled back to good image!"
           else
-            echo "❌ Reconciliation failed!"
+            echo "❌ Reconciliation failed! Expected 'good', got: $FINAL_IMAGE"
             exit 1
           fi
