@@ -101,8 +101,11 @@ jobs:
       - name: Deploy Bad Image
         run: |
           sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add weather-app-helms/values.yaml
+          git commit -m "Deploy bad image"
           git pull --rebase
-          git commit -am "Deploy bad image" || echo "No changes"
           git push
           echo "⏳ Waiting for ArgoCD to reconcile bad image..."
           sleep 60
@@ -110,8 +113,9 @@ jobs:
       - name: Deploy Good Image Again
         run: |
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+          git add weather-app-helms/values.yaml
+          git commit -m "Deploy good image again" || echo "No changes"
           git pull --rebase
-          git commit -am "Deploy good image again" || echo "No changes"
           git push
           echo "⏳ Waiting for ArgoCD to reconcile good image..."
           sleep 60
