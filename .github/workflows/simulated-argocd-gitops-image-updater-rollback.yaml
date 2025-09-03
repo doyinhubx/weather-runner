@@ -63,7 +63,7 @@ jobs:
             --from-literal=password=${{ secrets.GH_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      # 9. Apply ArgoCD Application with proper Image Updater config
+      # 9. Apply ArgoCD Application with CORRECT Image Updater config
       - name: Apply Application manifest
         run: |
           kubectl apply -f - <<EOF
@@ -74,11 +74,13 @@ jobs:
             namespace: argocd
             annotations:
               argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
-              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+              argocd-image-updater.argoproj.io/weather-app.update-strategy: newest-build
               argocd-image-updater.argoproj.io/weather-app.allow-tags: regexp:^(good|bad)$
               argocd-image-updater.argoproj.io/write-back-method: git
               argocd-image-updater.argoproj.io/git-branch: main
-              argocd-image-updater.argoproj.io/git-credentials: image-updater-git-creds
+              argocd-image-updater.argoproj.io/weather-app.git-credentials: image-updater-git-creds
+              argocd-image-updater.argoproj.io/weather-app.helm.image-name: image.repository
+              argocd-image-updater.argoproj.io/weather-app.helm.image-tag: image.tag
           spec:
             project: default
             source:
@@ -142,7 +144,40 @@ jobs:
           docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
           docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 13. Trigger Image Updater to detect and deploy new images
+      # 13. Configure Image Updater registry access
+      - name: Configure Image Updater registry access
+        run: |
+          # Create configmap for registry configuration
+          kubectl apply -n argocd -f - <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: argocd-image-updater-config
+          data:
+            registries.conf: |
+              registries:
+              - name: Docker Hub
+                api_url: https://registry-1.docker.io
+                prefix: docker.io
+                ping: yes
+                insecure: no
+                credentials: env:DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+            commit.template: |
+              build(docker): update image {{ .AppName }} to {{ .ImageAlias }}:{{ .ImageTag }}
+              
+              This is an automated commit from Argo CD Image Updater.
+          EOF
+          
+          # Set environment variables for Docker Hub credentials
+          kubectl set env deployment/argocd-image-updater -n argocd \
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} \
+            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
+          
+          # Restart Image Updater to apply config
+          kubectl rollout restart deployment argocd-image-updater -n argocd
+          sleep 15
+
+      # 14. Trigger Image Updater to detect and deploy new images
       - name: Trigger ArgoCD Image Updater
         run: |
           echo "🔄 Triggering ArgoCD Image Updater to detect new images..."
@@ -160,7 +195,7 @@ jobs:
           while true; do
             # Check if Image Updater has written back to Git
             git pull origin main
-            CURRENT_TAG=$(grep 'tag:' weather-app-helms/values.yaml | awk '{print $2}' | tr -d '"')
+            CURRENT_TAG=$(grep 'tag:' weather-app-helms/values.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
             
             if [[ "$CURRENT_TAG" == "bad" ]]; then
               echo "✅ Image Updater detected bad image and updated Git to tag: $CURRENT_TAG"
@@ -235,7 +270,7 @@ jobs:
           ELAPSED=0
           while true; do
             git pull origin main
-            CURRENT_TAG=$(grep 'tag:' weather-app-helms/values.yaml | awk '{print $2}' | tr -d '"')
+            CURRENT_TAG=$(grep 'tag:' weather-app-helms/values.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
             
             if [[ "$CURRENT_TAG" == "good" ]]; then
               echo "✅ Image Updater detected good image and updated Git to tag: $CURRENT_TAG"
@@ -252,7 +287,7 @@ jobs:
             ELAPSED=$((ELAPSED + INTERVAL))
           done
 
-      # 14. Verify final deployment
+      # 15. Verify final deployment
       - name: Verify final deployment
         run: |
           echo "⏳ Waiting for final deployment to become healthy..."
@@ -289,7 +324,7 @@ jobs:
           echo "=== Pod Status ==="
           kubectl get pods -n helms -l app=weather-app -o wide
 
-      # 15. Cleanup
+      # 16. Cleanup
       - name: Cleanup Kind cluster
         if: always()
         run: kind delete cluster --name argocd-cluster || true
