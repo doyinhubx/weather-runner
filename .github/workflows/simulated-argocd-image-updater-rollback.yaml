@@ -105,7 +105,7 @@ jobs:
         run: |
           echo "⏳ Waiting up to 90s for Image Updater to update the Application..."
           for i in {1..9}; do
-            FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" || echo "")
+            FINAL_IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" || echo "")
             echo "Current image: $FINAL_IMAGE"
             if [[ "$FINAL_IMAGE" == *":2.0.0" ]]; then
               echo "✅ Image Updater successfully updated to 2.0.0!"
