@@ -182,13 +182,22 @@ jobs:
           docker build -t registry:5001/weather-app:2.0.0 -f Dockerfile.good .
           docker push registry:5001/weather-app:2.0.0
 
-      # 15. Wait for Image Updater to detect new tag
+      # 15. Wait for ArgoCD Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
         run: |
-          # Manually trigger the image updater to simulate a push event
+          # Get the ArgoCD server pod name
+          ARGOCD_SERVER_POD=$(kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}')
+
+          # Get the token for the ArgoCD server service account
+          ARGOCD_TOKEN=$(kubectl get secret argocd-server-token -n argocd -o jsonpath='{.data.token}' | base64 -d)
+
+          # Manually trigger the image updater with the authentication token
           kubectl -n argocd exec deploy/argocd-image-updater -- \
             argocd-image-updater run --loglevel debug \
-            --match-application-name weather-app-helms
+            --match-application-name weather-app-helms \
+            --argocd-server-addr argocd-server:8080 \
+            --argocd-insecure \
+            --argocd-auth-token "$ARGOCD_TOKEN"
 
           # The rest of your wait loop can remain to verify the change
           echo "⏳ Waiting up to 120s for Image Updater to update the Application..."
