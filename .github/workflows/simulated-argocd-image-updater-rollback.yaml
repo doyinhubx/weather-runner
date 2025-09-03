@@ -31,26 +31,37 @@ jobs:
         run: |
           kind create cluster --name argocd-cluster
 
-      # 5. Install ArgoCD
+      # 5. Start a local Docker registry for Image Updater to watch
+      - name: Start Local Registry
+        run: |
+          docker run -d -p 5000:5000 --name registry registry:2
+          # connect registry container to kind network
+          docker network connect kind registry || true
+
+      # 6. Install ArgoCD
       - name: Install ArgoCD
         run: |
           kubectl create namespace argocd
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
 
-      # 6. Install ArgoCD Image Updater
+      # 7. Install ArgoCD Image Updater
       - name: Install ArgoCD Image Updater
         run: |
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
 
-      # 7. Build and load initial (1.0.0) image
+      # 8. Build and push initial (1.0.0) image to local registry
       - name: Build Initial Image
         run: |
-          docker build -t weather-app:1.0.0 -f Dockerfile.good .
-          kind load docker-image weather-app:1.0.0 --name argocd-cluster
+          docker build -t localhost:5000/weather-app:1.0.0 -f Dockerfile.good .
+          docker push localhost:5000/weather-app:1.0.0
 
-      # 8. Deploy Application with ArgoCD + annotations for Image Updater
+      # 9. Create helms namespace
+      - name: Create helms namespace
+        run: kubectl create namespace helms || true
+
+      # 10. Deploy Application with ArgoCD + annotations for Image Updater
       - name: Deploy ArgoCD Application
         run: |
           kubectl apply -f - <<'EOF'
@@ -60,7 +71,7 @@ jobs:
             name: weather-app-helms
             namespace: argocd
             annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=weather-app
+              argocd-image-updater.argoproj.io/image-list: weather-app=localhost:5000/weather-app
               argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
           spec:
             project: default
@@ -71,7 +82,7 @@ jobs:
               helm:
                 values: |
                   image:
-                    repository: weather-app
+                    repository: localhost:5000/weather-app
                     tag: "1.0.0"
                     pullPolicy: IfNotPresent
             destination:
@@ -82,15 +93,14 @@ jobs:
                 selfHeal: true
                 prune: true
           EOF
-          kubectl wait --for=condition=available --timeout=120s deployment/weather-app -n helms || true
 
-      # 9. Build and load newer (2.0.0) image
+      # 11. Build and push newer (2.0.0) image to local registry
       - name: Build Newer Image
         run: |
-          docker build -t weather-app:2.0.0 -f Dockerfile.good .
-          kind load docker-image weather-app:2.0.0 --name argocd-cluster
+          docker build -t localhost:5000/weather-app:2.0.0 -f Dockerfile.good .
+          docker push localhost:5000/weather-app:2.0.0
 
-      # 10. Wait for Image Updater to detect new tag
+      # 12. Wait for Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
         run: |
           echo "⏳ Waiting up to 90s for Image Updater to update the Application..."
@@ -106,6 +116,7 @@ jobs:
           echo "❌ Image Updater did not update to 2.0.0 in time"
           exit 1
 
-      # 11. Final pod status
+      # 13. Final pod status
       - name: Final Pod Status
         run: kubectl get pods -n helms -o wide
+

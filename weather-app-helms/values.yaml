@@ -127,7 +127,8 @@
 replicaCount: 1
 
 image:
-  repository: weather-app
+  repository: localhost:5000/weather-app
+  tag: "1.0.0"
   pullPolicy: IfNotPresent
 
 service:

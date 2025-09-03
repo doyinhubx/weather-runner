@@ -4,7 +4,7 @@ metadata:
   name: weather-app-helms
   namespace: argocd
   annotations:
-    argocd-image-updater.argoproj.io/image-list: weather-app=weather-app
+    argocd-image-updater.argoproj.io/image-list: weather-app=localhost:5000/weather-app
     argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
 spec:
   project: default
