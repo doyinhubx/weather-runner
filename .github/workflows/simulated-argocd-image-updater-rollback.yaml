@@ -26,25 +26,43 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 4. Create a temporary Kind cluster
+      # Step 4: Create a temporary Kind cluster
       - name: Create Kind cluster
         run: |
-          kind create cluster --name argocd-cluster
+          cat <<EOF | kind create cluster --name argocd-cluster --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 5000
+              hostPort: 5000
+          containerdConfigPatches:
+          - |-
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry:5000"]
+              endpoint = ["http://kind-registry:5000"]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."registry:5000".tls]
+              insecure_skip_verify = true
+          EOF
 
-      # 5. Start a local Docker registry for Image Updater to watch
+      # Step 5: Start a local Docker registry for Image Updater to watch
       - name: Start Local Registry
         run: |
-          # Start registry container if not already running
-          docker run -d --restart=always --name registry -p 5000:5000 registry:2 || true
-
-          # Connect registry to kind network
-          docker network connect kind registry || true
-
-          # Make sure /etc/hosts inside runner resolves "registry" -> 127.0.0.1
-          echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
-
-          # Verify registry is reachable
-          curl -s http://registry:5000/v2/_catalog || echo "Registry not yet ready"
+          docker run -d --restart=always --name registry registry:2
+          kind load docker-image --name argocd-cluster registry:2
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: argocd-image-updater-config
+            namespace: argocd
+          data:
+            registries.conf: |
+              registries:
+              - name: local-registry
+                host: kind-registry:5000
+                insecure: true
+          EOF
 
       # 6. Install ArgoCD
       - name: Install ArgoCD
@@ -79,7 +97,7 @@ jobs:
             --set image.tag=1.0.0 \
             --set image.pullPolicy=IfNotPresent
 
-      # 11. Apply ArgoCD Application with Image Updater annotations
+      # Step 11: Apply ArgoCD Application with Image Updater annotations
       - name: Deploy ArgoCD Application
         run: |
           kubectl apply -f - <<'EOF'
@@ -89,7 +107,7 @@ jobs:
             name: weather-app-helms
             namespace: argocd
             annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=registry:5000/weather-app
+              argocd-image-updater.argoproj.io/image-list: weather-app=kind-registry:5000/weather-app
               argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
               argocd-image-updater.argoproj.io/weather-app.helm.image-name: image.repository
               argocd-image-updater.argoproj.io/weather-app.helm.image-tag: image.tag
@@ -102,7 +120,7 @@ jobs:
               helm:
                 values: |
                   image:
-                    repository: registry:5000/weather-app
+                    repository: kind-registry:5000/weather-app
                     tag: "1.0.0"
                     pullPolicy: IfNotPresent
             destination:
