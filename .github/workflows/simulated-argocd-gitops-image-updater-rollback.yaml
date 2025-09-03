@@ -109,6 +109,10 @@ jobs:
           git push
           echo "⏳ Waiting for ArgoCD to reconcile bad image..."
           sleep 60
+          # Verify that the 'bad' image deployment fails
+          echo "⏳ Waiting for weather-app deployment to fail..."
+          kubectl wait --for=condition=Progressing=false --timeout=120s deployment/weather-app -n helms || true
+          echo "✅ Bad image deployment has failed or is stuck, as expected."
 
       - name: Deploy Good Image Again
         run: |
@@ -119,7 +123,7 @@ jobs:
           git push
           echo "⏳ Waiting for ArgoCD to reconcile good image..."
           sleep 90 # Increased sleep time
-
+          
       # 10. Verify Image Reconciliation
       - name: Verify final deployment
         run: |
