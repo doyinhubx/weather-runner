@@ -56,7 +56,6 @@ jobs:
       # 8. Configure Image Updater Git credentials
       - name: Configure Image Updater Git credentials
         run: |
-          # Create secret for Image Updater Git access
           kubectl create secret generic image-updater-git-creds \
             --namespace=argocd \
             --from-literal=username=github-actions \
@@ -100,6 +99,14 @@ jobs:
                 selfHeal: true
                 prune: true
           EOF
+
+      # ✅ NEW STEP: Patch annotations every run (ensures good|bad are allowed)
+      - name: Patch Application annotations
+        run: |
+          echo "📌 Ensuring Application is annotated with good|bad tag rules..."
+          kubectl annotate application weather-app \
+            argocd-image-updater.argoproj.io/weather-app.helm.allow-tags="regexp:^(good|bad)$" \
+            --overwrite -n argocd
 
       # 10. Wait for initial application sync
       - name: Wait for initial application sync
