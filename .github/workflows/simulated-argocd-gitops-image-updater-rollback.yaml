@@ -200,6 +200,99 @@ jobs:
       #       fi
       #     done
 
+      # SECOND
+      # - name: Trigger deployment via Git changes
+      #   run: |
+      #     for TAG in good bad good; do
+      #       echo "➡️ Deploying image tag: $TAG"
+            
+      #       # Pull latest changes
+      #       git pull origin main
+            
+      #       # Update values.yaml
+      #       sed -i 's/tag:.*/tag: "'$TAG'"/' weather-app-helms/values.yaml
+            
+      #       # Commit and push
+      #       git add weather-app-helms/values.yaml
+      #       git commit -m "Deploy $TAG image" || echo "No changes to commit"
+      #       git push origin main
+            
+      #       # Wait for ArgoCD to detect Git change and sync
+      #       echo "⏳ Waiting for ArgoCD to detect Git change and sync..."
+      #       TIMEOUT=180
+      #       INTERVAL=10
+      #       ELAPSED=0
+      #       while true; do
+      #         SYNC_STATUS=$(kubectl get application weather-app -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+      #         if [ "$SYNC_STATUS" = "Synced" ]; then
+      #           echo "✅ ArgoCD has synced the application"
+      #           break
+      #         fi
+      #         if [[ $ELAPSED -ge $TIMEOUT ]]; then
+      #           echo "❌ Timeout waiting for ArgoCD sync"
+      #           exit 1
+      #         fi
+      #         sleep $INTERVAL
+      #         ELAPSED=$((ELAPSED + INTERVAL))
+      #       done
+            
+      #       # Wait for deployment to update
+      #       echo "⏳ Waiting for deployment to update to $TAG..."
+      #       TIMEOUT=300
+      #       INTERVAL=10
+      #       ELAPSED=0
+      #       while true; do
+      #         CURRENT=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" 2>/dev/null || echo "")
+      #         if [[ "$CURRENT" == *":$TAG" ]]; then
+      #           echo "✅ Deployment updated to $TAG"
+      #           break
+      #         fi
+      #         if [[ $ELAPSED -ge $TIMEOUT ]]; then
+      #           echo "⚠️ Timeout waiting for $TAG deployment - checking if rollback is needed"
+                
+      #           # If bad image failed, manually trigger rollback to good
+      #           if [[ "$TAG" == "bad" ]]; then
+      #             echo "🔄 Bad image failed - manually rolling back to good..."
+      #             git pull origin main
+      #             sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+      #             git add weather-app-helms/values.yaml
+      #             git commit -m "Rollback to good image after bad deployment failed"
+      #             git push origin main
+      #             break
+      #           else
+      #             echo "❌ Timeout waiting for $TAG deployment"
+      #             kubectl describe deployment weather-app -n helms
+      #             exit 1
+      #           fi
+      #         fi
+      #         echo "Waiting for $TAG deployment... (Current: $CURRENT)"
+      #         sleep $INTERVAL
+      #         ELAPSED=$((ELAPSED + INTERVAL))
+      #       done
+            
+      #       # Additional logic for bad image
+      #       if [[ "$TAG" == "bad" ]]; then
+      #         echo "⏳ Waiting for bad image to fail..."
+      #         FAIL_TIMEOUT=120
+      #         FAIL_ELAPSED=0
+      #         while true; do
+      #           AVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type=='Available')].status}" 2>/dev/null || echo "Unknown")
+      #           if [[ "$AVAILABLE" == "False" ]]; then
+      #             echo "✅ Bad image deployment failed as expected"
+      #             break
+      #           fi
+      #           if [[ $FAIL_ELAPSED -ge $FAIL_TIMEOUT ]]; then
+      #             echo "❌ Expected bad image to fail but it didn't"
+      #             kubectl describe deployment weather-app -n helms
+      #             exit 1
+      #           fi
+      #           sleep 5
+      #           FAIL_ELAPSED=$((FAIL_ELAPSED + 5))
+      #         done
+      #       fi
+      #     done
+    
+
       - name: Trigger deployment via Git changes
         run: |
           for TAG in good bad good; do
@@ -216,7 +309,7 @@ jobs:
             git commit -m "Deploy $TAG image" || echo "No changes to commit"
             git push origin main
             
-            # Wait for ArgoCD to detect Git change and sync
+            # Wait for ArgoCD sync
             echo "⏳ Waiting for ArgoCD to detect Git change and sync..."
             TIMEOUT=180
             INTERVAL=10
@@ -247,50 +340,61 @@ jobs:
                 break
               fi
               if [[ $ELAPSED -ge $TIMEOUT ]]; then
-                echo "⚠️ Timeout waiting for $TAG deployment - checking if rollback is needed"
-                
-                # If bad image failed, manually trigger rollback to good
-                if [[ "$TAG" == "bad" ]]; then
-                  echo "🔄 Bad image failed - manually rolling back to good..."
-                  git pull origin main
-                  sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-                  git add weather-app-helms/values.yaml
-                  git commit -m "Rollback to good image after bad deployment failed"
-                  git push origin main
-                  break
-                else
-                  echo "❌ Timeout waiting for $TAG deployment"
-                  kubectl describe deployment weather-app -n helms
-                  exit 1
-                fi
+                echo "❌ Timeout waiting for $TAG deployment"
+                kubectl describe deployment weather-app -n helms
+                exit 1
               fi
               echo "Waiting for $TAG deployment... (Current: $CURRENT)"
               sleep $INTERVAL
               ELAPSED=$((ELAPSED + INTERVAL))
             done
             
-            # Additional logic for bad image
+            # Additional logic for bad image - check if it actually fails
             if [[ "$TAG" == "bad" ]]; then
-              echo "⏳ Waiting for bad image to fail..."
+              echo "⏳ Waiting to see if bad image fails..."
               FAIL_TIMEOUT=120
               FAIL_ELAPSED=0
               while true; do
-                AVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type=='Available')].status}" 2>/dev/null || echo "Unknown")
-                if [[ "$AVAILABLE" == "False" ]]; then
+                # Check multiple failure conditions
+                AVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.availableReplicas}" 2>/dev/null || echo "0")
+                READY=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.readyReplicas}" 2>/dev/null || echo "0")
+                UNAVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.unavailableReplicas}" 2>/dev/null || echo "0")
+                
+                echo "Available: $AVAILABLE, Ready: $READY, Unavailable: $UNAVAILABLE"
+                
+                # If we have unavailable replicas or available replicas dropped, the bad image failed
+                if [[ "$UNAVAILABLE" -gt 0 ]] || [[ "$AVAILABLE" -eq 0 ]]; then
                   echo "✅ Bad image deployment failed as expected"
                   break
                 fi
+                
                 if [[ $FAIL_ELAPSED -ge $FAIL_TIMEOUT ]]; then
-                  echo "❌ Expected bad image to fail but it didn't"
+                  echo "❌ Expected bad image to fail but it's running successfully!"
+                  echo "Your 'bad' image is actually working correctly. It needs to fail on startup."
                   kubectl describe deployment weather-app -n helms
+                  kubectl get pods -n helms
+                  kubectl logs -n helms -l app=weather-app --tail=20
                   exit 1
                 fi
                 sleep 5
                 FAIL_ELAPSED=$((FAIL_ELAPSED + 5))
               done
+              
+              # If bad image failed, manually rollback to good
+              echo "🔄 Bad image failed - rolling back to good..."
+              git pull origin main
+              sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+              git add weather-app-helms/values.yaml
+              git commit -m "Rollback to good image after bad deployment failed"
+              git push origin main
+              
+              # Wait for rollback to complete
+              echo "⏳ Waiting for rollback to good image..."
+              sleep 60
             fi
           done
-    
+
+          
       # 13. Verify final deployment
       - name: Verify final deployment
         run: |
