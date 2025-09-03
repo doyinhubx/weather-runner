@@ -155,6 +155,8 @@ main {
 
 
 
+
+
 /* Reuse base styles from index.css, then extend */
 .hero-marketing {
   background: linear-gradient(135deg, #0d6efd, #6c63ff);
