@@ -34,8 +34,13 @@ jobs:
       # 5. Start a local Docker registry for Image Updater to watch
       - name: Start Local Registry
         run: |
-          docker run -d -p 5000:5000 --name registry registry:2
+          docker run -d --restart=always -p 5000:5000 --name registry registry:2
+          # Connect registry to kind network so cluster can resolve it as "registry:5000"
           docker network connect kind registry || true
+          # Patch /etc/hosts inside kind nodes
+          for node in $(kind get nodes --name argocd-cluster); do
+            docker exec "$node" sh -c "echo '127.0.0.1 registry' >> /etc/hosts"
+          done
 
       # 6. Install ArgoCD
       - name: Install ArgoCD
