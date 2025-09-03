@@ -1,0 +1,120 @@
+name: Simulate Good → Bad → Good Deployment with ArgoCD + Image Updater
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-simulation:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      # 2. Install kubectl, kind, helm
+      - name: Install Kubernetes tools
+        run: |
+          curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # 3. Create Kind cluster
+      - name: Create Kind cluster
+        run: kind create cluster --name argocd-cluster
+
+      # 4. Install ArgoCD
+      - name: Install ArgoCD
+        run: |
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
+
+      # 5. Install ArgoCD Image Updater
+      - name: Install ArgoCD Image Updater
+        run: |
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
+
+      # 6. Apply ArgoCD Application with Image Updater annotations
+      - name: Apply Application manifest
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: weather-app
+            namespace: argocd
+            annotations:
+              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ github.repository_owner }}/weather-app
+              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+              argocd-image-updater.argoproj.io/write-back-method: git
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/${{ github.repository }}
+              targetRevision: main
+              path: weather-app-helms
+              helm:
+                valueFiles: ["values.yaml"]
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: helms
+            syncPolicy:
+              automated: {}
+          EOF
+
+      # 7. Build & push Good, Bad, and Good images to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Good Image
+        run: |
+          docker build -t docker.io/${{ github.repository_owner }}/weather-app:good -f Dockerfile.good .
+          docker push docker.io/${{ github.repository_owner }}/weather-app:good
+
+      - name: Build & Push Bad Image
+        run: |
+          docker build -t docker.io/${{ github.repository_owner }}/weather-app:bad -f Dockerfile.bad .
+          docker push docker.io/${{ github.repository_owner }}/weather-app:bad
+
+      # 8. Update Git values.yaml → Good → Bad → Good
+      - name: Deploy Good Image
+        run: |
+          sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git commit -am "Deploy good image"
+          git push
+
+      - name: Deploy Bad Image
+        run: |
+          sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
+          git commit -am "Deploy bad image"
+          git push
+          sleep 30
+
+      - name: Deploy Good Image Again
+        run: |
+          sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+          git commit -am "Deploy good image again"
+          git push
+          sleep 30
+
+      # 9. Verify Image Reconciliation
+      - name: Verify final deployment
+        run: |
+          FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+          echo "Final deployed image: $FINAL_IMAGE"
+          if [[ "$FINAL_IMAGE" == *":good" ]]; then
+            echo "✅ ArgoCD Image Updater reconciled back to good image!"
+          else
+            echo "❌ Reconciliation failed!"
+            exit 1
+          fi
