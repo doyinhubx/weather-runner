@@ -26,7 +26,7 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 4. Create a temporary Kind cluster
+      # 4. Create a temporary Kind cluster with local registry port mapping
       - name: Create Kind cluster
         run: |
           cat <<EOF | kind create cluster --name argocd-cluster --config=-
@@ -39,9 +39,9 @@ jobs:
               hostPort: 5000
           containerdConfigPatches:
           - |-
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry:5000"]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."kind-registry:5000"]
               endpoint = ["http://kind-registry:5000"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."registry:5000".tls]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."kind-registry:5000".tls]
               insecure_skip_verify = true
           EOF
 
@@ -83,7 +83,7 @@ jobs:
           echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
           kind load docker-image --name argocd-cluster registry:2
           
-          # Apply the Image Updater ConfigMap, including Git credentials
+          # Apply the Image Updater ConfigMap, configured for the local registry
           kubectl apply -f - <<EOF
           apiVersion: v1
           kind: ConfigMap
@@ -118,7 +118,7 @@ jobs:
           docker build -t registry:5001/weather-app:1.0.0 -f Dockerfile.good .
           docker push registry:5001/weather-app:1.0.0
 
-      # 10. Deploy ArgoCD Application (this will be the source of truth)
+      # 10. Deploy ArgoCD Application (source of truth)
       - name: Deploy ArgoCD Application
         run: |
           kubectl create namespace helms || true
@@ -157,7 +157,7 @@ jobs:
           docker build -t registry:5001/weather-app:2.0.0 -f Dockerfile.good .
           docker push registry:5001/weather-app:2.0.0
 
-      # 12. Wait for Image Updater to do its job
+      # 12. Wait for ArgoCD to Update
       - name: Wait for ArgoCD to Update
         run: |
           echo "⏳ Waiting up to 120s for ArgoCD to update the deployment..."
