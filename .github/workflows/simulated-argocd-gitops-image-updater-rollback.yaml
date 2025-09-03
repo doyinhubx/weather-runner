@@ -115,7 +115,7 @@ jobs:
 
       - name: Deploy Bad Image
         run: |
-          git pull origin main
+          git pull --rebase origin main  # Ensure local is up-to-date
           sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
           git config user.name github-actions
           git config user.email github-actions@github.com
