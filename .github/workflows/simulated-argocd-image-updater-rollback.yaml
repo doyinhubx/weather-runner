@@ -108,7 +108,7 @@ jobs:
                 host: kind-registry:5000
                 insecure: true
           EOF
-          
+
       # 8. Install ArgoCD
       - name: Install ArgoCD
         run: |
@@ -124,8 +124,8 @@ jobs:
       # 10. Build and push initial (1.0.0) image to local registry
       - name: Build Initial Image
         run: |
-          docker build -t registry:5000/weather-app:1.0.0 -f Dockerfile.good .
-          docker push registry:5000/weather-app:1.0.0
+          docker build -t registry:5001/weather-app:1.0.0 -f Dockerfile.good .
+          docker push registry:5001/weather-app:1.0.0
 
       # 11. Create helms namespace
       - name: Create helms namespace
@@ -179,8 +179,8 @@ jobs:
       # 14. Build and push newer (2.0.0) image to local registry
       - name: Build Newer Image
         run: |
-          docker build -t registry:5000/weather-app:2.0.0 -f Dockerfile.good .
-          docker push registry:5000/weather-app:2.0.0
+          docker build -t registry:5001/weather-app:2.0.0 -f Dockerfile.good .
+          docker push registry:5001/weather-app:2.0.0
 
       # 15. Wait for Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
