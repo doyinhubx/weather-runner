@@ -140,31 +140,111 @@ jobs:
           docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
           docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 12. Trigger Image Updater via Git changes (Good → Bad → Good)
-      - name: Trigger Image Updater via Git changes
+      # # 12. Trigger Image Updater via Git changes (Good → Bad → Good)
+      # - name: Trigger Image Updater via Git changes
+      #   run: |
+      #     for TAG in good bad good; do
+      #       echo "➡️ Deploying image tag: $TAG"
+            
+      #       # Pull latest changes first
+      #       git pull origin main
+            
+      #       # Update values.yaml with the new tag
+      #       sed -i 's/tag:.*/tag: "'$TAG'"/' weather-app-helms/values.yaml
+            
+      #       # Commit and push to trigger ArgoCD sync
+      #       git add weather-app-helms/values.yaml
+      #       git commit -m "Deploy $TAG image via CI" || echo "No changes to commit"
+      #       git push origin main
+            
+      #       # Wait for reconciliation
+      #       TIMEOUT=300
+      #       INTERVAL=10
+      #       ELAPSED=0
+      #       while true; do
+      #         CURRENT=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" 2>/dev/null || echo "")
+      #         if [[ "$CURRENT" == *":$TAG" ]]; then
+      #           echo "✅ Image reconciled to $TAG"
+      #           break
+      #         fi
+      #         if [[ $ELAPSED -ge $TIMEOUT ]]; then
+      #           echo "❌ Timeout waiting for $TAG deployment"
+      #           kubectl describe deployment weather-app -n helms
+      #           exit 1
+      #         fi
+      #         echo "Waiting for $TAG deployment... (Current: $CURRENT)"
+      #         sleep $INTERVAL
+      #         ELAPSED=$((ELAPSED + INTERVAL))
+      #       done
+            
+      #       # Additional wait for bad image to fail (if it's the bad tag)
+      #       if [[ "$TAG" == "bad" ]]; then
+      #         echo "⏳ Waiting for bad image to fail..."
+      #         # Wait for deployment to become unavailable
+      #         FAIL_TIMEOUT=120
+      #         FAIL_ELAPSED=0
+      #         while true; do
+      #           AVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type=='Available')].status}" 2>/dev/null || echo "Unknown")
+      #           if [[ "$AVAILABLE" == "False" ]]; then
+      #             echo "✅ Bad image deployment failed as expected"
+      #             break
+      #           fi
+      #           if [[ $FAIL_ELAPSED -ge $FAIL_TIMEOUT ]]; then
+      #             echo "❌ Expected bad image to fail but it didn't"
+      #             kubectl describe deployment weather-app -n helms
+      #             exit 1
+      #           fi
+      #           sleep 5
+      #           FAIL_ELAPSED=$((FAIL_ELAPSED + 5))
+      #         done
+      #       fi
+      #     done
+
+      - name: Trigger deployment via Git changes
         run: |
           for TAG in good bad good; do
             echo "➡️ Deploying image tag: $TAG"
             
-            # Pull latest changes first
+            # Pull latest changes
             git pull origin main
             
-            # Update values.yaml with the new tag
+            # Update values.yaml
             sed -i 's/tag:.*/tag: "'$TAG'"/' weather-app-helms/values.yaml
             
-            # Commit and push to trigger ArgoCD sync
+            # Commit and push
             git add weather-app-helms/values.yaml
-            git commit -m "Deploy $TAG image via CI" || echo "No changes to commit"
+            git commit -m "Deploy $TAG image" || echo "No changes to commit"
             git push origin main
             
-            # Wait for reconciliation
+            # Wait for ArgoCD (not Image Updater) to sync
+            echo "⏳ Waiting for ArgoCD to detect Git change and sync..."
+            TIMEOUT=180
+            INTERVAL=10
+            ELAPSED=0
+            while true; do
+              # Check if ArgoCD has detected the sync status
+              SYNC_STATUS=$(kubectl get application weather-app -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+              if [ "$SYNC_STATUS" = "Synced" ]; then
+                echo "✅ ArgoCD has synced the application"
+                break
+              fi
+              if [[ $ELAPSED -ge $TIMEOUT ]]; then
+                echo "❌ Timeout waiting for ArgoCD sync"
+                exit 1
+              fi
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            done
+            
+            # Now wait for deployment to update
+            echo "⏳ Waiting for deployment to update to $TAG..."
             TIMEOUT=300
             INTERVAL=10
             ELAPSED=0
             while true; do
               CURRENT=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" 2>/dev/null || echo "")
               if [[ "$CURRENT" == *":$TAG" ]]; then
-                echo "✅ Image reconciled to $TAG"
+                echo "✅ Deployment updated to $TAG"
                 break
               fi
               if [[ $ELAPSED -ge $TIMEOUT ]]; then
@@ -176,30 +256,8 @@ jobs:
               sleep $INTERVAL
               ELAPSED=$((ELAPSED + INTERVAL))
             done
-            
-            # Additional wait for bad image to fail (if it's the bad tag)
-            if [[ "$TAG" == "bad" ]]; then
-              echo "⏳ Waiting for bad image to fail..."
-              # Wait for deployment to become unavailable
-              FAIL_TIMEOUT=120
-              FAIL_ELAPSED=0
-              while true; do
-                AVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type=='Available')].status}" 2>/dev/null || echo "Unknown")
-                if [[ "$AVAILABLE" == "False" ]]; then
-                  echo "✅ Bad image deployment failed as expected"
-                  break
-                fi
-                if [[ $FAIL_ELAPSED -ge $FAIL_TIMEOUT ]]; then
-                  echo "❌ Expected bad image to fail but it didn't"
-                  kubectl describe deployment weather-app -n helms
-                  exit 1
-                fi
-                sleep 5
-                FAIL_ELAPSED=$((FAIL_ELAPSED + 5))
-              done
-            fi
           done
-
+    
       # 13. Verify final deployment
       - name: Verify final deployment
         run: |
