@@ -216,13 +216,12 @@ jobs:
             git commit -m "Deploy $TAG image" || echo "No changes to commit"
             git push origin main
             
-            # Wait for ArgoCD (not Image Updater) to sync
+            # Wait for ArgoCD to detect Git change and sync
             echo "⏳ Waiting for ArgoCD to detect Git change and sync..."
             TIMEOUT=180
             INTERVAL=10
             ELAPSED=0
             while true; do
-              # Check if ArgoCD has detected the sync status
               SYNC_STATUS=$(kubectl get application weather-app -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
               if [ "$SYNC_STATUS" = "Synced" ]; then
                 echo "✅ ArgoCD has synced the application"
@@ -236,7 +235,7 @@ jobs:
               ELAPSED=$((ELAPSED + INTERVAL))
             done
             
-            # Now wait for deployment to update
+            # Wait for deployment to update
             echo "⏳ Waiting for deployment to update to $TAG..."
             TIMEOUT=300
             INTERVAL=10
@@ -248,14 +247,48 @@ jobs:
                 break
               fi
               if [[ $ELAPSED -ge $TIMEOUT ]]; then
-                echo "❌ Timeout waiting for $TAG deployment"
-                kubectl describe deployment weather-app -n helms
-                exit 1
+                echo "⚠️ Timeout waiting for $TAG deployment - checking if rollback is needed"
+                
+                # If bad image failed, manually trigger rollback to good
+                if [[ "$TAG" == "bad" ]]; then
+                  echo "🔄 Bad image failed - manually rolling back to good..."
+                  git pull origin main
+                  sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
+                  git add weather-app-helms/values.yaml
+                  git commit -m "Rollback to good image after bad deployment failed"
+                  git push origin main
+                  break
+                else
+                  echo "❌ Timeout waiting for $TAG deployment"
+                  kubectl describe deployment weather-app -n helms
+                  exit 1
+                fi
               fi
               echo "Waiting for $TAG deployment... (Current: $CURRENT)"
               sleep $INTERVAL
               ELAPSED=$((ELAPSED + INTERVAL))
             done
+            
+            # Additional logic for bad image
+            if [[ "$TAG" == "bad" ]]; then
+              echo "⏳ Waiting for bad image to fail..."
+              FAIL_TIMEOUT=120
+              FAIL_ELAPSED=0
+              while true; do
+                AVAILABLE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type=='Available')].status}" 2>/dev/null || echo "Unknown")
+                if [[ "$AVAILABLE" == "False" ]]; then
+                  echo "✅ Bad image deployment failed as expected"
+                  break
+                fi
+                if [[ $FAIL_ELAPSED -ge $FAIL_TIMEOUT ]]; then
+                  echo "❌ Expected bad image to fail but it didn't"
+                  kubectl describe deployment weather-app -n helms
+                  exit 1
+                fi
+                sleep 5
+                FAIL_ELAPSED=$((FAIL_ELAPSED + 5))
+              done
+            fi
           done
     
       # 13. Verify final deployment
@@ -275,3 +308,7 @@ jobs:
       - name: Cleanup Kind cluster
         if: always()
         run: kind delete cluster --name argocd-cluster || true
+
+
+
+

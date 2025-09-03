@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}
 spec:
+  progressDeadlineSeconds: 60  # ← Add this: Wait 60 seconds for deployment to succeed
+  revisionHistoryLimit: 3      # ← Add this: Keep 3 previous revisions for rollback
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
