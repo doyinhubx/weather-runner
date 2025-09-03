@@ -60,7 +60,16 @@ jobs:
       - name: Create helms namespace
         run: kubectl create namespace helms || true
 
-      # 10. Deploy Application with ArgoCD + annotations for Image Updater
+      # 10. Deploy Helm Release (ensures Deployment exists)
+      - name: Deploy Helm Release
+        run: |
+          helm upgrade --install weather-app-helms ./weather-app-helms \
+            --namespace helms \
+            --set image.repository=localhost:5000/weather-app \
+            --set image.tag=1.0.0 \
+            --set image.pullPolicy=IfNotPresent
+
+      # 11. Apply ArgoCD Application with Image Updater annotations
       - name: Deploy ArgoCD Application
         run: |
           kubectl apply -f - <<'EOF'
@@ -95,24 +104,18 @@ jobs:
                 prune: true
           EOF
 
-      # 11. Build and push newer (2.0.0) image to local registry
+      # 12. Build and push newer (2.0.0) image to local registry
       - name: Build Newer Image
         run: |
           docker build -t localhost:5000/weather-app:2.0.0 -f Dockerfile.good .
           docker push localhost:5000/weather-app:2.0.0
 
-      # 12. Wait for Deployment to appear before polling
-      - name: Wait for Deployment
-        run: |
-          echo "⏳ Waiting for weather-app-helms deployment to be created..."
-          kubectl rollout status deployment/weather-app-helms -n helms --timeout=90s || true
-
       # 13. Wait for Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
         run: |
-          echo "⏳ Waiting up to 90s for Image Updater to update the Application..."
-          for i in {1..9}; do
-            FINAL_IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" || echo "")
+          echo "⏳ Waiting up to 120s for Image Updater to update the Application..."
+          for i in {1..12}; do
+            FINAL_IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" 2>/dev/null || echo "")
             echo "Current image: $FINAL_IMAGE"
             if [[ "$FINAL_IMAGE" == *":2.0.0" ]]; then
               echo "✅ Image Updater successfully updated to 2.0.0!"
