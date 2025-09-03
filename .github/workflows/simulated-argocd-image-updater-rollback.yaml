@@ -185,6 +185,12 @@ jobs:
       # 15. Wait for Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
         run: |
+          # Manually trigger the image updater to simulate a push event
+          kubectl -n argocd exec deploy/argocd-image-updater -- \
+            argocd-image-updater run --log-level debug \
+            --applications weather-app-helms
+
+          # The rest of your wait loop can remain to verify the change
           echo "⏳ Waiting up to 120s for Image Updater to update the Application..."
           for i in {1..12}; do
             FINAL_IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" 2>/dev/null || echo "")
