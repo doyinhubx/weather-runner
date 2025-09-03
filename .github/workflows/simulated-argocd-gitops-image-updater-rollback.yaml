@@ -1,26 +1,23 @@
-name: Simulate Good → Bad → Good Deployment with ArgoCD + Image Updater
+name: Simulate ArgoCD Image Updater
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy-simulation:
+  image-updater-simulation:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Add timeout to prevent hanging
 
     steps:
       # 1. Checkout repository
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      # 2. Configure Git globally
-      - name: Configure Git
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+      # 2. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      # 3. Install Kubernetes tools
+      # 3. Install kubectl, kind, and Helm
       - name: Install Kubernetes tools
         run: |
           curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
@@ -29,164 +26,161 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 4. Create Kind cluster
+      # 4. Create a temporary Kind cluster
       - name: Create Kind cluster
-        run: kind create cluster --name argocd-cluster
+        run: |
+          cat <<EOF | kind create cluster --name argocd-cluster --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 5000
+              hostPort: 5000
+          containerdConfigPatches:
+          - |-
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry:5000"]
+              endpoint = ["http://kind-registry:5000"]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."registry:5000".tls]
+              insecure_skip_verify = true
+          EOF
 
-      # 5. Install ArgoCD
-      - name: Install ArgoCD
+      # 5. Create argocd namespace and configure Git credentials
+      - name: Create ArgoCD Namespace & Configure Git Credentials
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           kubectl create namespace argocd
-          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
+          # Create Git credentials secret for ArgoCD Image Updater to write back to Git
+          kubectl create secret generic git-creds --from-literal=git-token="$GH_TOKEN" -n argocd
 
-      # 6. Install ArgoCD Image Updater
-      - name: Install ArgoCD Image Updater
+      # 6. Configure Docker daemon for insecure registry
+      - name: Configure Docker Insecure Registry
         run: |
-          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
-          kubectl wait --for=condition=available --timeout=180s deployment/argocd-image-updater -n argocd
+          sudo mkdir -p /etc/docker
+          echo '{"insecure-registries": ["registry:5001"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
 
-      # 7. Pre-create target namespace
-      - name: Create helms namespace
-        run: kubectl create namespace helms || true
-
-      # 8. Apply ArgoCD Application
-      - name: Apply Application manifest
+      # 7. Start local registry and configure Image Updater ConfigMap
+      - name: Start Local Registry & Configure Image Updater
         run: |
+          docker run -d --restart=always -p 5001:5000 --name registry registry:2
+          
+          echo "⏳ Waiting for local Docker registry to become available..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          until curl --fail -s http://localhost:5001/v2/; do
+            RETRY_COUNT=$((RETRY_COUNT+1))
+            if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+              echo "❌ Local registry did not start in time. Exiting."
+              exit 1
+            fi
+            sleep 5
+            echo "Retrying... ($RETRY_COUNT/$MAX_RETRIES)"
+          done
+          echo "✅ Local registry is ready."
+
+          echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
+          kind load docker-image --name argocd-cluster registry:2
+          
+          # Apply the Image Updater ConfigMap, including Git credentials
           kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: argocd-image-updater-config
+            namespace: argocd
+          data:
+            registries.conf: |
+              registries:
+              - name: local-registry
+                host: kind-registry:5000
+                insecure: true
+            git-credentials: |
+              - url: https://github.com/doyinhubx/weather-runner.git
+                username: argocd-image-updater
+                passwordSecret:
+                  name: git-creds
+                  key: git-token
+          EOF
+
+      # 8. Install ArgoCD
+      - name: Install ArgoCD
+        run: |
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
+
+      # 9. Build and push initial (1.0.0) image
+      - name: Build Initial Image
+        run: |
+          docker build -t registry:5001/weather-app:1.0.0 -f Dockerfile.good .
+          docker push registry:5001/weather-app:1.0.0
+
+      # 10. Deploy ArgoCD Application (this will be the source of truth)
+      - name: Deploy ArgoCD Application
+        run: |
+          kubectl create namespace helms || true
+          kubectl apply -f - <<'EOF'
           apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
-            name: weather-app
+            name: weather-app-helms
             namespace: argocd
             annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+              argocd-image-updater.argoproj.io/image-list: weather-app=kind-registry:5000/weather-app
               argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
-              argocd-image-updater.argoproj.io/write-back-method: git
+              argocd-image-updater.argoproj.io/weather-app.helm.image-name: image.repository
+              argocd-image-updater.argoproj.io/weather-app.helm.image-tag: image.tag
           spec:
             project: default
             source:
-              repoURL: https://github.com/${{ github.repository }}
+              repoURL: https://github.com/doyinhubx/weather-runner.git
               targetRevision: main
               path: weather-app-helms
               helm:
-                valueFiles: ["values.yaml"]
+                valueFiles:
+                - values.yaml
             destination:
               server: https://kubernetes.default.svc
               namespace: helms
             syncPolicy:
-              automated: {}
+              automated:
+                selfHeal: true
+                prune: true
           EOF
 
-      # 9. Wait for initial sync
-      - name: Wait for initial application sync
+      # 11. Build and push newer (2.0.0) image to trigger the update
+      - name: Build Newer Image
         run: |
-          sleep 30
-          kubectl wait --for=condition=Healthy --timeout=300s application/weather-app -n argocd
+          docker build -t registry:5001/weather-app:2.0.0 -f Dockerfile.good .
+          docker push registry:5001/weather-app:2.0.0
 
-      # 10. Build & push images
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and Push Good Image
+      # 12. Wait for Image Updater to do its job
+      - name: Wait for ArgoCD to Update
         run: |
-          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good -f Dockerfile.good .
-          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good
+          echo "⏳ Waiting up to 120s for ArgoCD to update the deployment..."
+          for i in {1..12}; do
+            FINAL_IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}" 2>/dev/null || echo "")
+            echo "Current image: $FINAL_IMAGE"
+            if [[ "$FINAL_IMAGE" == *":2.0.0" ]]; then
+              echo "✅ Image successfully updated to 2.0.0!"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Image did not update to 2.0.0 in time"
+          exit 1
+      
+      # 13. Final Pod Status
+      - name: Final Pod Status
+        run: kubectl get pods -n helms -o wide
 
-      - name: Build & Push Bad Image
-        run: |
-          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
-          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
-
-      # 11. Disable Image Updater
-      - name: Disable Image Updater
-        run: |
-          kubectl patch application weather-app -n argocd --type merge -p '{
-            "metadata": {
-              "annotations": {
-                "argocd-image-updater.argoproj.io/weather-app.update-strategy": "none"
-              }
-            }
-          }'
-          sleep 15
-
-      # 12. Good → Bad → Good simulation
-      - name: Deploy Good Image
-        run: |
-          git pull --rebase origin main
-          sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git add weather-app-helms/values.yaml
-          git commit -m "Deploy good image" || echo "No changes to commit"
-          git push origin main
-          echo "⏳ Waiting for initial good deployment..."
-          sleep 60
-
-      - name: Deploy Bad Image
-        run: |
-          git pull --rebase origin main
-          sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
-          
-          if git diff --quiet --exit-code; then
-            echo "No changes to commit"
-          else
-            git add weather-app-helms/values.yaml
-            git commit -m "Deploy bad image"
-            git push origin main
-          fi
-          
-          echo "⏳ Waiting for bad image to fail..."
-          timeout 120s bash -c '
-            while kubectl get deployment weather-app -n helms -o jsonpath="{.status.conditions[?(@.type==\"Available\")].status}" | grep -q "True"; do
-              echo "Deployment still available, waiting..."
-              sleep 10
-            done
-            echo "✅ Bad image deployment failed as expected"
-          ' || (echo "❌ Bad image should have failed!" && exit 1)
-
-      - name: Deploy Good Image Again
-        run: |
-          git pull --rebase origin main
-          sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git add weather-app-helms/values.yaml
-          git commit -m "Deploy good image again" || echo "No changes to commit"
-          git push origin main
-          echo "⏳ Waiting for good image reconciliation..."
-          sleep 90
-
-      # 13. Re-enable Image Updater
-      - name: Re-enable Image Updater
-        run: |
-          kubectl patch application weather-app -n argocd --type merge -p '{
-            "metadata": {
-              "annotations": {
-                "argocd-image-updater.argoproj.io/weather-app.update-strategy": "latest"
-              }
-            }
-          }'
-          sleep 15
-
-      # 14. Verify final deployment
-      - name: Verify final deployment
-        run: |
-          echo "⏳ Waiting for weather-app Deployment to be ready..."
-          kubectl rollout status deployment/weather-app -n helms --timeout=300s
-          
-          FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
-          echo "Final deployed image: $FINAL_IMAGE"
-          
-          if [[ "$FINAL_IMAGE" == *"good" ]]; then
-            echo "✅ ArgoCD successfully reconciled back to good image!"
-          else
-            echo "❌ Reconciliation failed! Expected 'good', got: $FINAL_IMAGE"
-            kubectl describe deployment weather-app -n helms
-            exit 1
-          fi
-
-      # 15. Cleanup
-      - name: Cleanup Kind cluster
+      # 14. Cleanup
+      - name: Cleanup
         if: always()
-        run: kind delete cluster --name argocd-cluster || true
+        run: |
+          kind delete cluster --name argocd-cluster
+          docker container stop registry
+          docker container rm registry
