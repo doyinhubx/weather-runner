@@ -39,7 +39,11 @@ jobs:
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
 
-      # 6. Apply ArgoCD Application with Image Updater annotations
+      # 6. Pre-create target namespace
+      - name: Create helms namespace
+        run: kubectl create namespace helms || true
+
+      # 7. Apply ArgoCD Application with Image Updater annotations
       - name: Apply Application manifest
         run: |
           kubectl apply -f - <<EOF
@@ -49,7 +53,7 @@ jobs:
             name: weather-app
             namespace: argocd
             annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ github.repository_owner }}/weather-app
+              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
               argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
               argocd-image-updater.argoproj.io/write-back-method: git
           spec:
@@ -67,7 +71,7 @@ jobs:
               automated: {}
           EOF
 
-      # 7. Build & push Good, Bad, and Good images to Docker Hub
+      # 8. Build & push Good, Bad, and Good images to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -84,7 +88,7 @@ jobs:
           docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
           docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 8. Update Git values.yaml → Good → Bad → Good
+      # 9. Update Git values.yaml → Good → Bad → Good
       - name: Deploy Good Image
         run: |
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
@@ -107,9 +111,12 @@ jobs:
           git push
           sleep 30
 
-      # 9. Verify Image Reconciliation
+      # 10. Verify Image Reconciliation
       - name: Verify final deployment
         run: |
+          echo "⏳ Waiting for weather-app Deployment to be ready..."
+          kubectl wait --for=condition=available deployment/weather-app -n helms --timeout=120s
+
           FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
           echo "Final deployed image: $FINAL_IMAGE"
           if [[ "$FINAL_IMAGE" == *":good" ]]; then
