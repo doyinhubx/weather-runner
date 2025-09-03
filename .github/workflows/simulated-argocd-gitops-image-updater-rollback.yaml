@@ -147,17 +147,21 @@ jobs:
       # 13. Configure Image Updater registry access
       - name: Configure Image Updater registry access
         run: |
-          # Delete existing secret if it exists
+          # Delete existing secrets if they exist
           kubectl delete secret dockerhub-creds -n argocd --ignore-not-found
+          kubectl delete secret dockerhub-creds -n helms --ignore-not-found
           
-          # Create proper Docker registry secret
-          kubectl create secret docker-registry dockerhub-creds \
-            --namespace=argocd \
-            --docker-server=https://index.docker.io/v1/ \
-            --docker-username=${{ secrets.DOCKERHUB_USERNAME }} \
-            --docker-password=${{ secrets.DOCKERHUB_TOKEN }}
+          # Create proper Docker registry secret in both namespaces
+          for ns in argocd helms; do
+            kubectl create secret docker-registry dockerhub-creds \
+              --namespace=$ns \
+              --docker-server=https://index.docker.io/v1/ \
+              --docker-username=${{ secrets.DOCKERHUB_USERNAME }} \
+              --docker-password=${{ secrets.DOCKERHUB_TOKEN }} \
+              --dry-run=client -o yaml | kubectl apply -f -
+          done
           
-          # Create configmap for registry configuration
+          # Create configmap for registry configuration (points to argocd/dockerhub-creds)
           kubectl apply -n argocd -f - <<EOF
           apiVersion: v1
           kind: ConfigMap
@@ -180,8 +184,9 @@ jobs:
           
           # Restart Image Updater to apply config
           kubectl rollout restart deployment argocd-image-updater -n argocd
-          echo "✅ Image Updater configuration updated with proper pullsecret reference"
+          echo "✅ Image Updater configuration updated with proper pullsecret reference in both namespaces"
           sleep 15
+
 
       # 14. Trigger Image Updater to detect and deploy new images
       - name: Trigger ArgoCD Image Updater
