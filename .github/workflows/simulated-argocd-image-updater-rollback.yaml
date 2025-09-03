@@ -59,14 +59,14 @@ jobs:
       # 7. Start a local Docker registry and configure the Image Updater
       - name: Start Local Registry & Configure Image Updater
         run: |
-          # Start the local registry
-          docker run -d --restart=always -p 5000:5000 --name registry registry:2
-
+          # Use a different port for the local registry, e.g., 5001, to avoid conflict
+          docker run -d --restart=always -p 5001:5000 --name registry registry:2
+          
           # Wait for the registry to become available
           echo "⏳ Waiting for local Docker registry to become available..."
           MAX_RETRIES=10
           RETRY_COUNT=0
-          until curl --fail -s http://localhost:5000/v2/; do
+          until curl --fail -s http://localhost:5001/v2/; do
             RETRY_COUNT=$((RETRY_COUNT+1))
             if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
               echo "❌ Local registry did not start in time. Exiting."
@@ -77,12 +77,12 @@ jobs:
           done
           echo "✅ Local registry is ready."
 
-          # Configure Docker to use the insecure registry
+          # The rest of the workflow will continue to use `registry:5000`
+          # but we need to tell the Docker daemon to use the new port.
           sudo mkdir -p /etc/docker
-          echo '{"insecure-registries": ["registry:5000"]}' | sudo tee /etc/docker/daemon.json
+          echo '{"insecure-registries": ["registry:5001"]}' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
 
-          # Connect registry to kind network and apply config (unchanged)
           echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
           kind load docker-image --name argocd-cluster registry:2
           kubectl apply -f - <<EOF
@@ -98,6 +98,7 @@ jobs:
                 host: kind-registry:5000
                 insecure: true
           EOF
+          
       # 8. Install ArgoCD
       - name: Install ArgoCD
         run: |
