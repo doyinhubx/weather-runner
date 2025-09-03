@@ -60,6 +60,11 @@ jobs:
       - name: Start Local Registry & Configure Image Updater
         run: |
           docker run -d --restart=always --name registry registry:2
+          
+          # Add a short delay to allow the registry to start up
+          echo "Waiting for local Docker registry to start..."
+          sleep 5
+
           echo "127.0.0.1 registry" | sudo tee -a /etc/hosts
           kind load docker-image --name argocd-cluster registry:2
           kubectl apply -f - <<EOF
