@@ -6,6 +6,8 @@ metadata:
   annotations:
     argocd-image-updater.argoproj.io/image-list: weather-app=localhost:5000/weather-app
     argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+    argocd-image-updater.argoproj.io/weather-app.helm.image-name: image.repository
+    argocd-image-updater.argoproj.io/weather-app.helm.image-tag: image.tag
 spec:
   project: default
   source:
