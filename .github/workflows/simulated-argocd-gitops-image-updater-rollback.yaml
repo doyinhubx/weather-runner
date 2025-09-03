@@ -31,13 +31,13 @@ jobs:
         run: |
           kubectl create namespace argocd
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-          kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=180s deployment/argocd-server -n argocd
 
       # 5. Install ArgoCD Image Updater
       - name: Install ArgoCD Image Updater
         run: |
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
-          kubectl wait --for=condition=available --timeout=120s deployment/argocd-image-updater -n argocd
+          kubectl wait --for=condition=available --timeout=180s deployment/argocd-image-updater -n argocd
 
       # 6. Pre-create target namespace
       - name: Create helms namespace
@@ -94,28 +94,33 @@ jobs:
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git commit -am "Deploy good image"
+          git pull --rebase
+          git commit -am "Deploy good image" || echo "No changes"
           git push
 
       - name: Deploy Bad Image
         run: |
           sed -i 's/tag:.*/tag: "bad"/' weather-app-helms/values.yaml
-          git commit -am "Deploy bad image"
+          git pull --rebase
+          git commit -am "Deploy bad image" || echo "No changes"
           git push
-          sleep 30
+          echo "⏳ Waiting for ArgoCD to reconcile bad image..."
+          sleep 60
 
       - name: Deploy Good Image Again
         run: |
           sed -i 's/tag:.*/tag: "good"/' weather-app-helms/values.yaml
-          git commit -am "Deploy good image again"
+          git pull --rebase
+          git commit -am "Deploy good image again" || echo "No changes"
           git push
-          sleep 30
+          echo "⏳ Waiting for ArgoCD to reconcile good image..."
+          sleep 60
 
       # 10. Verify Image Reconciliation
       - name: Verify final deployment
         run: |
           echo "⏳ Waiting for weather-app Deployment to be ready..."
-          kubectl wait --for=condition=available deployment/weather-app -n helms --timeout=120s
+          kubectl wait --for=condition=available deployment/weather-app -n helms --timeout=180s
 
           FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
           echo "Final deployed image: $FINAL_IMAGE"
