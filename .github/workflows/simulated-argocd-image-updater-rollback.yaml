@@ -53,8 +53,8 @@ jobs:
       # 8. Build and push initial (1.0.0) image to local registry
       - name: Build Initial Image
         run: |
-          docker build -t localhost:5000/weather-app:1.0.0 -f Dockerfile.good .
-          docker push localhost:5000/weather-app:1.0.0
+          docker build -t registry:5000/weather-app:1.0.0 -f Dockerfile.good .
+          docker push registry:5000/weather-app:1.0.0
 
       # 9. Create helms namespace
       - name: Create helms namespace
@@ -65,7 +65,7 @@ jobs:
         run: |
           helm upgrade --install weather-app-helms ./weather-app-helms \
             --namespace helms \
-            --set image.repository=localhost:5000/weather-app \
+            --set image.repository=registry:5000/weather-app \
             --set image.tag=1.0.0 \
             --set image.pullPolicy=IfNotPresent
 
@@ -79,7 +79,7 @@ jobs:
             name: weather-app-helms
             namespace: argocd
             annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=localhost:5000/weather-app
+              argocd-image-updater.argoproj.io/image-list: weather-app=registry:5000/weather-app
               argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
               argocd-image-updater.argoproj.io/weather-app.helm.image-name: image.repository
               argocd-image-updater.argoproj.io/weather-app.helm.image-tag: image.tag
@@ -92,7 +92,7 @@ jobs:
               helm:
                 values: |
                   image:
-                    repository: localhost:5000/weather-app
+                    repository: registry:5000/weather-app
                     tag: "1.0.0"
                     pullPolicy: IfNotPresent
             destination:
@@ -107,8 +107,8 @@ jobs:
       # 12. Build and push newer (2.0.0) image to local registry
       - name: Build Newer Image
         run: |
-          docker build -t localhost:5000/weather-app:2.0.0 -f Dockerfile.good .
-          docker push localhost:5000/weather-app:2.0.0
+          docker build -t registry:5000/weather-app:2.0.0 -f Dockerfile.good .
+          docker push registry:5000/weather-app:2.0.0
 
       # 13. Wait for Image Updater to detect new tag
       - name: Wait for ArgoCD Image Updater
