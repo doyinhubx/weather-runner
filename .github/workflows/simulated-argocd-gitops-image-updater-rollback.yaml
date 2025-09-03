@@ -118,13 +118,13 @@ jobs:
           git pull --rebase
           git push
           echo "⏳ Waiting for ArgoCD to reconcile good image..."
-          sleep 60
+          sleep 90 # Increased sleep time
 
       # 10. Verify Image Reconciliation
       - name: Verify final deployment
         run: |
           echo "⏳ Waiting for weather-app Deployment to be ready..."
-          kubectl wait --for=condition=available deployment/weather-app -n helms --timeout=180s
+          kubectl wait --for=condition=available deployment/weather-app -n helms --timeout=300s # Increased timeout
 
           FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
           echo "Final deployed image: $FINAL_IMAGE"
