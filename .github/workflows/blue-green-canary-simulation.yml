@@ -128,13 +128,20 @@ jobs:
         run: |
           echo "Starting Canary rollout..."
           kubectl apply -n app -f k8s/canary-v2-10.yaml
+          kubectl rollout status deployment/weather-canary -n app --timeout=30s
           kubectl get pods -n app -o wide
+          
+          echo "Scaling to 50%..."
+          kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
           sleep 20
-          kubectl apply -n app -f k8s/canary-v2-50.yaml
           kubectl get pods -n app -o wide
+          
+          echo "Scaling to 100%..."
+          kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":4}}'
           sleep 20
-          kubectl apply -n app -f k8s/canary-v2-100.yaml
           kubectl get pods -n app -o wide
+
+
 
       # 14. Display rollout status
       - name: Show rollout status

@@ -5,18 +5,18 @@ metadata:
   namespace: app
   labels:
     app: weather-app
-    version: green
+    version: canary
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: weather-app
-      version: green
+      version: canary
   template:
     metadata:
       labels:
         app: weather-app
-        version: green
+        version: canary
     spec:
       containers:
         - name: weather-app
