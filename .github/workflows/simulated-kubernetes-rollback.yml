@@ -87,7 +87,7 @@ jobs:
             --set image.tag=bad \
             --wait --timeout 3m || echo "⚠️ Deployment failed as expected"
 
-      # 9. Post-Deployment Health Check & Automated Rollback
+            # 9. Post-Deployment Health Check & Automated Rollback
       - name: Verify Deployment Health and Rollback if Failed
         run: |
           echo "🔍 Running post-deployment health checks..."
@@ -108,12 +108,40 @@ jobs:
             echo "❌ Deployment failed health check!"
             echo "🔄 Triggering rollback..."
             kubectl rollout undo deployment/weather-app || echo "⚠️ No rollback needed (maybe first deploy)"
+            
+            echo "📜 Showing rollout history after rollback:"
+            kubectl rollout history deployment/weather-app || true
+            
             echo "✅ Rollback completed. Cluster restored to last good state."
+            echo "---------------------------------------------"
+            echo "📊 Final pod status:"
+            kubectl get pods -l app=weather-app -o wide
+            echo "---------------------------------------------"
             exit 1
           fi
 
+      # 10. Deploy third good image (to confirm recovery)
+      - name: Deploy third good release
+        run: |
+          echo "🚀 Deploying third good release to confirm recovery..."
+          docker build -f Dockerfile.good -t weather-app:good-v2 .
+          kind load docker-image weather-app:good-v2 --name test-cluster
+          helm upgrade --install weather-app ./weather-app-helms \
+            --namespace default \
+            --set image.repository=weather-app \
+            --set image.tag=good-v2 \
+            --wait --timeout 3m
+          echo "✅ Third good release deployed successfully."
 
-      # 10. Delete kind cluster (cleanup)
+          echo "📜 Rollout history after third release:"
+          kubectl rollout history deployment/weather-app
+
+          echo "📊 Current pods:"
+          kubectl get pods -l app=weather-app -o wide
+          echo "---------------------------------------------"
+
+
+      # 11. Delete kind cluster (cleanup)
       - name: Cleanup Kind Cluster
         if: always()
         run: |
