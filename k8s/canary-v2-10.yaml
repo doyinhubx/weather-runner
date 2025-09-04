@@ -22,7 +22,7 @@ spec:
         - name: weather-app
           image: weather-app:local
           ports:
-            - containerPort: 8000
+            - containerPort: 8080
           livenessProbe:
             httpGet:
               path: /
@@ -32,6 +32,6 @@ spec:
           readinessProbe:
             httpGet:
               path: /  
-              port: 8000
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5

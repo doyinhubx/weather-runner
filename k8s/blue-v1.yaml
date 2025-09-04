@@ -24,13 +24,7 @@ spec:
         - name: weather-app
           image: weather-app:local
           ports:
-            - containerPort: 8000
-          startupProbe:
-            httpGet:
-              path: /
-              port: 8080
-            failureThreshold: 30
-            periodSeconds: 10
+            - containerPort: 8080
           readinessProbe:
             httpGet:
               path: /
