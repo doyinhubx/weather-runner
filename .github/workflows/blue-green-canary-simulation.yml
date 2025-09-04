@@ -97,14 +97,24 @@ jobs:
           sleep 5
           kubectl get svc -n app weather-app -o yaml
 
-      # 14. Traffic test (after Green switch)
+      # 14. Traffic test (Green active) with rollback logic
       - name: Traffic test (Green active)
+        id: green-test
+        continue-on-error: true
         run: |
           echo "Testing traffic after switching to Green..."
           for i in {1..5}; do
-            kubectl run curl-test-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080
+            kubectl run curl-green-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
+              curl -s http://weather-app:8080 || exit 1
           done
+
+      - name: Rollback to Blue if Green fails
+        if: steps.green-test.outcome == 'failure'
+        run: |
+          echo "❌ Green failed. Rolling back to Blue..."
+          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
+          kubectl rollout status deployment/weather-blue -n app --timeout=60s
+          exit 1
 
       # 15. Canary rollout simulation
       - name: Canary rollout
@@ -124,16 +134,26 @@ jobs:
           sleep 20
           kubectl get pods -n app -o wide
 
-      # 16. Traffic test (Canary)
+      # 16. Traffic test (Canary rollout) with rollback logic
       - name: Traffic test (Canary rollout)
+        id: canary-test
+        continue-on-error: true
         run: |
           echo "Testing traffic during Canary rollout..."
           for i in {1..10}; do
             kubectl run curl-canary-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080
+              curl -s http://weather-app:8080 || exit 1
           done
 
-      # 17. Rollback to Blue
+      - name: Rollback to Blue if Canary fails
+        if: steps.canary-test.outcome == 'failure'
+        run: |
+          echo "❌ Canary failed. Rolling back to Blue..."
+          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
+          kubectl rollout status deployment/weather-blue -n app --timeout=60s
+          exit 1
+
+      # 17. Rollback to Blue (explicit at end of sim)
       - name: Rollback to Blue
         run: |
           echo "Rolling back Service selector to Blue..."
