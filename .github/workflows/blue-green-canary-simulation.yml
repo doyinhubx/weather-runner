@@ -68,12 +68,18 @@ jobs:
           kubectl create namespace app || true
 
       # 10. Blue-Green Deployment: Deploy v1 (Blue)
-      - name: Deploy v1 (Blue)
+      - name: Deploy v1 (Blue) with debugging
         run: |
           echo "Deploying Blue version (v1)..."
           kubectl apply -n app -f k8s/blue-v1.yaml
-          kubectl rollout status deployment/weather-blue -n app
-          kubectl get pods -n app -l version=blue -o wide
+          
+          # Wait with timeout and get debug info if it fails
+          timeout 60s kubectl rollout status deployment/weather-blue -n app || \
+          (echo "Rollout failed - getting debug info:" && \
+           kubectl describe deployment/weather-blue -n app && \
+           kubectl get pods -n app -l version=blue && \
+           kubectl logs -n app -l version=blue --all-containers=true --tail=50 && \
+           exit 1)
 
       # 11. Blue-Green Deployment: Deploy v2 (Green)
       - name: Deploy v2 (Green) and switch service
