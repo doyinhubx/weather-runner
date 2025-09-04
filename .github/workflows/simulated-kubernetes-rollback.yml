@@ -91,7 +91,7 @@ jobs:
             STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}" 2>/dev/null || echo "NotReady")
             echo "📊 Current pod status: $STATUS"
             if [[ "$STATUS" == "Running" ]]; then
-              echo "✅ Pod is running (deployment succeeded)."
+              echo "✅ Pod is running (Rollback succeeded)."
               FAILED=0
               break
             fi
@@ -99,22 +99,23 @@ jobs:
             sleep 10
           done
 
+          echo "📊 Pods after health check:"
+          kubectl get pods -l app=weather-app -o wide || true
+          echo "---------------------------------------------"
+
           if [[ $FAILED -eq 1 ]]; then
             echo "❌ Deployment failed health check!"
-            echo "📊 Pods before rollback:"
-            kubectl get pods -l app=weather-app -o wide || true
-            echo "---------------------------------------------"
-
             echo "🔄 Triggering rollback..."
             kubectl rollout undo deployment/weather-app || echo "⚠️ No rollback needed"
-            
+
             echo "📜 Rollout history after rollback:"
             kubectl rollout history deployment/weather-app
 
             echo "📊 Pods after rollback:"
-            kubectl get pods -l app=weather-app -o wide
+            kubectl get pods -l app=weather-app -o wide || true
             echo "---------------------------------------------"
           fi
+
 
       # 10. Deploy third good image to confirm recovery
       - name: Deploy third good release
