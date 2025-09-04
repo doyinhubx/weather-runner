@@ -49,6 +49,36 @@ jobs:
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=180s deployment/argocd-image-updater -n argocd
 
+      # 7. Configure Image Updater permissions
+      - name: Configure Image Updater permissions
+        run: |
+          echo "🔐 Granting Image Updater permissions to access secrets..."
+          kubectl apply -n argocd -f - <<EOF
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1
+          metadata:
+            name: argocd-image-updater-secrets-role
+          rules:
+          - apiGroups: [""]
+            resources: ["secrets"]
+            verbs: ["get"]
+          EOF
+
+          kubectl apply -n argocd -f - <<EOF
+          kind: RoleBinding
+          apiVersion: rbac.authorization.k8s.io/v1
+          metadata:
+            name: argocd-image-updater-secrets-binding
+          subjects:
+          - kind: ServiceAccount
+            name: argocd-image-updater
+          roleRef:
+            kind: Role
+            name: argocd-image-updater-secrets-role
+            apiGroup: rbac.authorization.k8s.io
+          EOF
+          echo "✅ Permissions configured successfully."
+          
       # 7. Create target namespace
       - name: Create helms namespace
         run: kubectl create namespace helms || true
