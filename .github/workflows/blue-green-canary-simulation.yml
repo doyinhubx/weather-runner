@@ -39,12 +39,26 @@ jobs:
           echo "✅ Service applied"
       
       # 6. Deploy Blue (v1)
-      - name: 🔵 Deploy Blue (v1)
+      - name: 🚀 Deploy Blue (Good Image)
         run: |
+          docker build -t weather-app:good -f Dockerfile .
+          kind load docker-image weather-app:good --name chart-testing
           kubectl apply -n app -f k8s/blue-v1.yaml
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          kubectl get pods -n app -l version=blue
-          echo "✅ Blue deployed"
+
+          echo "🔄 Waiting for Blue rollout..."
+          if ! kubectl rollout status deployment/weather-blue -n app --timeout=60s; then
+            echo "❌ Rollout failed! Dumping pod info & logs..."
+            kubectl get pods -n app -l version=blue -o wide
+            kubectl describe pods -n app -l version=blue
+            for pod in $(kubectl get pods -n app -l version=blue -o jsonpath='{.items[*].metadata.name}'); do
+              echo "===== Logs from $pod ====="
+              kubectl logs "$pod" -n app || true
+            done
+            exit 1
+          fi
+          echo "✅ Blue deployment successful"
+          echo "=================================================="
+
       
       # 7. Traffic test (Blue)
       - name: 🌍 Traffic test (Blue)
