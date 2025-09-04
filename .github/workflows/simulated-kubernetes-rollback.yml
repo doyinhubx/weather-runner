@@ -1,4 +1,4 @@
-name: Deploy and Test Rollback on Kind 
+name: Deploy and Test Rollback on Kind
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
           kind create cluster --name test-cluster
           echo "✅ Kind cluster created!"
 
-      # 5. Load Docker images into Kind
+      # 5. Build and load Docker images
       - name: Build and load working image
         run: |
           echo "📦 Building working image..."
@@ -50,7 +50,7 @@ jobs:
           kind load docker-image weather-app:bad --name test-cluster
           echo "✅ Failing image loaded (for simulation)."
 
-      # 6. Deploy working image via Helm
+      # 6. Deploy working image
       - name: Deploy working image
         run: |
           echo "🚀 Deploying working release..."
@@ -61,21 +61,16 @@ jobs:
             --wait --timeout 3m
           echo "✅ Working release deployed successfully."
 
-      # 7. Verify deployment succeeded
-      - name: Verify deployment
+      # 7. Verify and print status of first (good) deployment
+      - name: Verify working deployment
         run: |
           echo "🔍 Verifying working pod status..."
-          for i in {1..12}; do
-            STATUS=$(kubectl get pods -l app=weather-app -o jsonpath="{.items[0].status.phase}")
-            if [[ "$STATUS" == "Running" ]]; then
-              echo "✅ Pod is running (healthy deployment)."
-              exit 0
-            fi
-            echo "⏳ Waiting for pod... ($i/12)"
-            sleep 10
-          done
-          echo "❌ Initial deployment failed!"
-          exit 1
+          kubectl rollout status deployment/weather-app --timeout=120s
+          echo "📜 Rollout history after good deployment:"
+          kubectl rollout history deployment/weather-app
+          echo "📊 Current pods:"
+          kubectl get pods -l app=weather-app -o wide
+          echo "---------------------------------------------"
 
       # 8. Deploy failing image to simulate failure
       - name: Deploy failing image
@@ -87,7 +82,7 @@ jobs:
             --set image.tag=bad \
             --wait --timeout 3m || echo "⚠️ Deployment failed as expected"
 
-            # 9. Post-Deployment Health Check & Automated Rollback
+      # 9. Post-deployment health check and rollback
       - name: Verify Deployment Health and Rollback if Failed
         run: |
           echo "🔍 Running post-deployment health checks..."
@@ -106,21 +101,22 @@ jobs:
 
           if [[ $FAILED -eq 1 ]]; then
             echo "❌ Deployment failed health check!"
-            echo "🔄 Triggering rollback..."
-            kubectl rollout undo deployment/weather-app || echo "⚠️ No rollback needed (maybe first deploy)"
-            
-            echo "📜 Showing rollout history after rollback:"
-            kubectl rollout history deployment/weather-app || true
-            
-            echo "✅ Rollback completed. Cluster restored to last good state."
+            echo "📊 Pods before rollback:"
+            kubectl get pods -l app=weather-app -o wide || true
             echo "---------------------------------------------"
-            echo "📊 Final pod status:"
+
+            echo "🔄 Triggering rollback..."
+            kubectl rollout undo deployment/weather-app || echo "⚠️ No rollback needed"
+            
+            echo "📜 Rollout history after rollback:"
+            kubectl rollout history deployment/weather-app
+
+            echo "📊 Pods after rollback:"
             kubectl get pods -l app=weather-app -o wide
             echo "---------------------------------------------"
-            exit 1
           fi
 
-      # 10. Deploy third good image (to confirm recovery)
+      # 10. Deploy third good image to confirm recovery
       - name: Deploy third good release
         run: |
           echo "🚀 Deploying third good release to confirm recovery..."
@@ -136,12 +132,11 @@ jobs:
           echo "📜 Rollout history after third release:"
           kubectl rollout history deployment/weather-app
 
-          echo "📊 Current pods:"
+          echo "📊 Current pods after recovery:"
           kubectl get pods -l app=weather-app -o wide
           echo "---------------------------------------------"
 
-
-      # 11. Delete kind cluster (cleanup)
+      # 11. Cleanup cluster
       - name: Cleanup Kind Cluster
         if: always()
         run: |
