@@ -23,3 +23,9 @@ spec:
           image: weather-app:local
           ports:
             - containerPort: 5000
+          readinessProbe:
+            httpGet:
+              path: /  
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
