@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: weather-blue
-  annotations:
-    deployment.kubernetes.io/progress-deadline-seconds: "300"  # 5 minutes
   namespace: app
   labels:
     app: weather-app
@@ -31,11 +29,10 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: 1
-            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /
               port: 8080
+            initialDelaySeconds: 5
             periodSeconds: 10
-            timeoutSeconds: 1
+
