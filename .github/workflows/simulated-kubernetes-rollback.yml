@@ -37,17 +37,17 @@ jobs:
       - name: Build and load working image
         run: |
           echo "📦 Building working image..."
-          docker build -f Dockerfile.working -t weather-app:working .
+          docker build -f Dockerfile.good -t weather-app:good .
           echo "📥 Loading working image into Kind..."
-          kind load docker-image weather-app:working --name test-cluster
+          kind load docker-image weather-app:good --name test-cluster
           echo "✅ Working image ready!"
 
       - name: Build and load failing image
         run: |
           echo "📦 Building failing image..."
-          docker build -f Dockerfile.failing -t weather-app:failing .
+          docker build -f Dockerfile.bad -t weather-app:bad .
           echo "📥 Loading failing image into Kind..."
-          kind load docker-image weather-app:failing --name test-cluster
+          kind load docker-image weather-app:bad --name test-cluster
           echo "✅ Failing image loaded (for simulation)."
 
       # 6. Deploy working image via Helm
@@ -57,7 +57,7 @@ jobs:
           helm upgrade --install weather-app ./weather-app-helms \
             --namespace default \
             --set image.repository=weather-app \
-            --set image.tag=working \
+            --set image.tag=good \
             --wait --timeout 3m
           echo "✅ Working release deployed successfully."
 
@@ -84,7 +84,7 @@ jobs:
           helm upgrade --install weather-app ./weather-app-helms \
             --namespace default \
             --set image.repository=weather-app \
-            --set image.tag=failing \
+            --set image.tag=bad \
             --wait --timeout 3m || echo "⚠️ Deployment failed as expected"
 
       # 9. Post-Deployment Health Check & Automated Rollback
@@ -112,7 +112,7 @@ jobs:
             exit 1
           fi
 
-          
+
       # 10. Delete kind cluster (cleanup)
       - name: Cleanup Kind Cluster
         if: always()

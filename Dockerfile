@@ -29,4 +29,4 @@ COPY --from=builder /app/public ./public
 EXPOSE 8080
 
 # Serve built app
-CMD ["sh", "-c", "exit 1"]
+CMD ["serve", "-s", "public", "-l", "8080"]
