@@ -43,45 +43,52 @@ jobs:
         run: |
           kind load docker-image weather-app:local --name rollout-sim
 
-      # 6. Install kubectl
+      # 7. Install kubectl
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
 
-      # 7. Install Helm
+      # 8. Install Helm
       - name: Install Helm
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      # 8. Install ArgoCD
+      # 9. Install ArgoCD
       - name: Install ArgoCD
         run: |
           kubectl create namespace argocd
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=180s deployment/argocd-server -n argocd
 
-      # 9. Create app namespace
+      # 10. Create app namespace
       - name: Create app namespace
         run: |
           kubectl create namespace app || true
 
-      # 10. Blue-Green Deployment: Deploy v1 (Blue)
-      - name: Deploy v1 (Blue) with debugging
+      # # 11. Blue-Green Deployment: Deploy v1 (Blue)
+      # - name: Deploy v1 (Blue) with debugging
+      #   run: |
+      #     echo "Deploying Blue version (v1)..."
+      #     kubectl apply -n app -f k8s/blue-v1.yaml
+          
+      #     # Wait with timeout and get debug info if it fails
+      #     timeout 60s kubectl rollout status deployment/weather-blue -n app || \
+      #     (echo "Rollout failed - getting debug info:" && \
+      #      kubectl describe deployment/weather-blue -n app && \
+      #      kubectl get pods -n app -l version=blue && \
+      #      kubectl logs -n app -l version=blue --all-containers=true --tail=50 && \
+      #      exit 1)
+
+      # 11. Blue-Green Deployment: Deploy v1 (Blue)
+      - name: Deploy v1 (Blue)
         run: |
           echo "Deploying Blue version (v1)..."
           kubectl apply -n app -f k8s/blue-v1.yaml
-          
-          # Wait with timeout and get debug info if it fails
-          timeout 60s kubectl rollout status deployment/weather-blue -n app || \
-          (echo "Rollout failed - getting debug info:" && \
-           kubectl describe deployment/weather-blue -n app && \
-           kubectl get pods -n app -l version=blue && \
-           kubectl logs -n app -l version=blue --all-containers=true --tail=50 && \
-           exit 1)
+          kubectl rollout status deployment/weather-blue -n app --timeout=120s
 
-      # 11. Blue-Green Deployment: Deploy v2 (Green)
+      # 12. Blue-Green Deployment: Deploy v2 (Green)
       - name: Deploy v2 (Green) and switch service
         run: |
           echo "Deploying Green version (v2)..."
@@ -92,7 +99,7 @@ jobs:
           kubectl get svc -n app weather-app
           kubectl get pods -n app -l version=green -o wide
 
-      # 12. Canary rollout simulation
+      # 13. Canary rollout simulation
       - name: Canary rollout
         run: |
           echo "Starting Canary rollout..."
@@ -105,7 +112,7 @@ jobs:
           kubectl apply -n app -f k8s/canary-v2-100.yaml
           kubectl get pods -n app -o wide
 
-      # 13. Display rollout status
+      # 14. Display rollout status
       - name: Show rollout status
         run: |
           echo "===== Deployment Status ====="
@@ -113,7 +120,7 @@ jobs:
           kubectl get pods -n app -o wide
           kubectl get svc -n app
 
-      # 14. Rollback simulation
+      # 15. Rollback simulation
       - name: Rollback to Blue
         run: |
           echo "Rolling back to Blue (v1)..."
@@ -123,7 +130,7 @@ jobs:
           kubectl get pods -n app -l version=blue -o wide
           kubectl get svc -n app
 
-      # 15. Cleanup Kind cluster
+      # 16. Cleanup Kind cluster
       - name: Cleanup
         if: always()
         run: |
