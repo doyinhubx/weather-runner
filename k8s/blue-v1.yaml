@@ -25,15 +25,5 @@ spec:
           image: weather-app:local
           ports:
             - containerPort: 8000
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /  # Adjust if your app has a health endpoint
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 5
+          readinessProbe: {}
+          livenessProbe: {}

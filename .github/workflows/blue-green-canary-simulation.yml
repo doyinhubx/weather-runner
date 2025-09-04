@@ -82,11 +82,35 @@ jobs:
       #      exit 1)
 
       # 11. Blue-Green Deployment: Deploy v1 (Blue)
-      - name: Deploy v1 (Blue)
+      - name: Deploy v1 (Blue) with detailed debugging
         run: |
           echo "Deploying Blue version (v1)..."
           kubectl apply -n app -f k8s/blue-v1.yaml
-          kubectl rollout status deployment/weather-blue -n app --timeout=120s
+          
+          # Wait a bit for pods to start
+          sleep 10
+          
+          # Get detailed debug information
+          echo "=== Pod Status ==="
+          kubectl get pods -n app -o wide
+          
+          echo "=== Pod Details ==="
+          kubectl describe pods -n app -l version=blue
+          
+          echo "=== Deployment Status ==="
+          kubectl describe deployment/weather-blue -n app
+          
+          echo "=== Readiness Probe Debug ==="
+          for pod in $(kubectl get pods -n app -l version=blue -o name); do
+            echo "--- Debugging $pod ---"
+            kubectl exec -n app $pod -- curl -s http://localhost:8080/ || echo "Cannot connect to app"
+            kubectl exec -n app $pod -- netstat -tln || echo "Netstat not available"
+            kubectl exec -n app $pod -- ps aux || echo "PS not available"
+          done
+          
+          # Now try to check rollout status
+          timeout 30s kubectl rollout status deployment/weather-blue -n app || \
+          (echo "Rollout failed - check above debug info" && exit 1)
 
       # 12. Blue-Green Deployment: Deploy v2 (Green)
       - name: Deploy v2 (Green) and switch service
