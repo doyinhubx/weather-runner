@@ -67,58 +67,12 @@ jobs:
         run: |
           kubectl create namespace app || true
 
-      # # 11. Blue-Green Deployment: Deploy v1 (Blue)
-      # - name: Deploy v1 (Blue) with debugging
-      #   run: |
-      #     echo "Deploying Blue version (v1)..."
-      #     kubectl apply -n app -f k8s/blue-v1.yaml
-          
-      #     # Wait with timeout and get debug info if it fails
-      #     timeout 60s kubectl rollout status deployment/weather-blue -n app || \
-      #     (echo "Rollout failed - getting debug info:" && \
-      #      kubectl describe deployment/weather-blue -n app && \
-      #      kubectl get pods -n app -l version=blue && \
-      #      kubectl logs -n app -l version=blue --all-containers=true --tail=50 && \
-      #      exit 1)
-
-      # # 11. Blue-Green Deployment: Deploy v1 (Blue)
-      # - name: Deploy v1 (Blue) with detailed debugging
-      #   run: |
-      #     echo "Deploying Blue version (v1)..."
-      #     kubectl apply -n app -f k8s/blue-v1.yaml
-          
-      #     # Wait a bit for pods to start
-      #     sleep 10
-          
-      #     # Get detailed debug information
-      #     echo "=== Pod Status ==="
-      #     kubectl get pods -n app -o wide
-          
-      #     echo "=== Pod Details ==="
-      #     kubectl describe pods -n app -l version=blue
-          
-      #     echo "=== Deployment Status ==="
-      #     kubectl describe deployment/weather-blue -n app
-          
-      #     echo "=== Readiness Probe Debug ==="
-      #     for pod in $(kubectl get pods -n app -l version=blue -o name); do
-      #       echo "--- Debugging $pod ---"
-      #       kubectl exec -n app $pod -- curl -s http://localhost:8080/ || echo "Cannot connect to app"
-      #       kubectl exec -n app $pod -- netstat -tln || echo "Netstat not available"
-      #       kubectl exec -n app $pod -- ps aux || echo "PS not available"
-      #     done
-          
-      #     # Now try to check rollout status
-      #     timeout 30s kubectl rollout status deployment/weather-blue -n app || \
-      #     (echo "Rollout failed - check above debug info" && exit 1)
-
       # 11. Blue-Green Deployment: Deploy v1 (Blue)
       - name: Deploy v1 (Blue)
         run: |
           echo "Deploying Blue version (v1)..."
           kubectl apply -n app -f k8s/blue-v1.yaml
 
-          # Wait for rollout with a short timeout
           if ! kubectl rollout status deployment/weather-blue -n app --timeout=60s; then
             echo "=== Rollout failed. Showing pod logs & status ==="
             kubectl get pods -n app -l version=blue -o wide
@@ -127,6 +81,10 @@ jobs:
           fi
 
           echo "Blue deployment successful ✅"
+          kubectl wait --for=condition=ready pod -l version=blue -n app --timeout=60s
+          sleep 5
+          kubectl get svc -n app weather-app
+          kubectl get pods -n app -l version=blue -o wide
 
       # 12. Blue-Green Deployment: Deploy v2 (Green)
       - name: Deploy v2 (Green) and switch service
@@ -134,6 +92,8 @@ jobs:
           echo "Deploying Green version (v2)..."
           kubectl apply -n app -f k8s/green-v2.yaml
           kubectl rollout status deployment/weather-green -n app
+          kubectl wait --for=condition=ready pod -l version=green -n app --timeout=60s
+          sleep 5
           echo "Switching Service to Green..."
           kubectl apply -n app -f k8s/switch-to-green.yaml
           kubectl get svc -n app weather-app
@@ -143,10 +103,9 @@ jobs:
       - name: Traffic test (Blue vs Green)
         run: |
           echo "Testing traffic after switching to Green..."
-          # Run multiple curl requests inside the cluster
           for i in {1..5}; do
             kubectl run curl-test-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080
+              sh -c "for x in 1 2 3; do curl -s --max-time 5 http://weather-app:8080 && break; sleep 3; done"
           done
 
       # 13. Canary rollout simulation
@@ -154,7 +113,9 @@ jobs:
         run: |
           echo "Starting Canary rollout..."
           kubectl apply -n app -f k8s/canary-v2-10.yaml
-          kubectl rollout status deployment/weather-canary -n app --timeout=30s
+          kubectl rollout status deployment/weather-canary -n app --timeout=60s
+          kubectl wait --for=condition=ready pod -l version=canary -n app --timeout=60s
+          sleep 5
           kubectl get pods -n app -o wide
           
           echo "Scaling to 50%..."
@@ -171,10 +132,9 @@ jobs:
       - name: Traffic test (Canary rollout)
         run: |
           echo "Testing traffic during Canary rollout..."
-          # Send multiple requests, expect a mix of v1 and v2 responses
           for i in {1..10}; do
             kubectl run curl-canary-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080
+              sh -c "for x in 1 2 3; do curl -s --max-time 5 http://weather-app:8080 && break; sleep 3; done"
           done
 
       # 14. Display rollout status
@@ -192,6 +152,8 @@ jobs:
           kubectl apply -n app -f k8s/blue-v1.yaml
           kubectl apply -n app -f k8s/switch-to-blue.yaml
           kubectl rollout status deployment/weather-blue -n app
+          kubectl wait --for=condition=ready pod -l version=blue -n app --timeout=60s
+          sleep 5
           kubectl get pods -n app -l version=blue -o wide
           kubectl get svc -n app
 
@@ -201,9 +163,9 @@ jobs:
           echo "Testing traffic after rollback..."
           for i in {1..5}; do
             kubectl run curl-rollback-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080
+              sh -c "for x in 1 2 3; do curl -s --max-time 5 http://weather-app:8080 && break; sleep 3; done"
           done
-          
+
       # 16. Cleanup Kind cluster
       - name: Cleanup
         if: always()
