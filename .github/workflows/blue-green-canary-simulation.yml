@@ -42,7 +42,7 @@ jobs:
       - name: 🚀 Deploy Blue (Good Image)
         run: |
           docker build -t weather-app:good -f Dockerfile .
-          kind load docker-image weather-app:good --name chart-testing
+          kind load docker-image weather-app:good --name weather-sim
           kubectl apply -n app -f k8s/blue-v1.yaml
 
           echo "🔄 Waiting for Blue rollout..."
