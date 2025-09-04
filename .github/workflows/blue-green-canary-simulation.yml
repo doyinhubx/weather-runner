@@ -1,0 +1,118 @@
+name: Weather App Rollout Simulation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  rollout-simulation:
+    runs-on: ubuntu-latest
+
+    env:
+      KUBECONFIG: ${{ github.workspace }}/kubeconfig
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. Set up Docker
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Install Kind
+      - name: Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.26.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      # 4. Create Kind cluster
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name rollout-sim --kubeconfig $KUBECONFIG
+
+      # 5. Install kubectl
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      # 6. Install Helm
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # 7. Install ArgoCD
+      - name: Install ArgoCD
+        run: |
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=180s deployment/argocd-server -n argocd
+
+      # 8. Create app namespace
+      - name: Create app namespace
+        run: |
+          kubectl create namespace app || true
+
+      # 9. Blue-Green Deployment: Deploy v1 (Blue)
+      - name: Deploy v1 (Blue)
+        run: |
+          echo "Deploying Blue version (v1)..."
+          kubectl apply -n app -f k8s/blue-v1.yaml
+          kubectl rollout status deployment/weather-blue -n app
+          kubectl get pods -n app -l version=blue -o wide
+
+      # 10. Blue-Green Deployment: Deploy v2 (Green)
+      - name: Deploy v2 (Green) and switch service
+        run: |
+          echo "Deploying Green version (v2)..."
+          kubectl apply -n app -f k8s/green-v2.yaml
+          kubectl rollout status deployment/weather-green -n app
+          echo "Switching Service to Green..."
+          kubectl apply -n app -f k8s/switch-to-green.yaml
+          kubectl get svc -n app weather-app
+          kubectl get pods -n app -l version=green -o wide
+
+      # 11. Canary Deployment Steps
+      - name: Canary rollout simulation
+        run: |
+          echo "Starting Canary rollout..."
+          echo "10% traffic to v2..."
+          kubectl apply -n app -f k8s/canary-v2-10.yaml
+          kubectl get pods -n app -o wide
+          sleep 20
+          echo "50% traffic to v2..."
+          kubectl apply -n app -f k8s/canary-v2-50.yaml
+          kubectl get pods -n app -o wide
+          sleep 20
+          echo "100% traffic to v2..."
+          kubectl apply -n app -f k8s/canary-v2-100.yaml
+          kubectl get pods -n app -o wide
+
+      # 12. Visualize Rollout Status
+      - name: Display Rollout Status
+        run: |
+          echo "===== Rollout Status ====="
+          kubectl get deployments -n app -o wide
+          kubectl get pods -n app -o wide
+          kubectl get svc -n app
+
+      # 13. Rollback Simulation
+      - name: Rollback to Blue
+        run: |
+          echo "Rolling back to Blue (v1)..."
+          kubectl apply -n app -f k8s/blue-v1.yaml
+          kubectl apply -n app -f k8s/switch-to-blue.yaml
+          kubectl rollout status deployment/weather-blue -n app
+          kubectl get pods -n app -l version=blue -o wide
+          kubectl get svc -n app
+
+      # 14. Cleanup Kind cluster
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Cleaning up Kind cluster..."
+          kind delete cluster --name rollout-sim

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: weather-app
+  namespace: app
+spec:
+  selector:
+    app: weather-app
+    version: green
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
