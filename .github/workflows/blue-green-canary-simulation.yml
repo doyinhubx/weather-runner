@@ -251,12 +251,21 @@ jobs:
           sleep 15
           kubectl get pods -n app -o wide
 
-      # 15.5. Traffic test Canary (50%)
-      - name: 🌍 Traffic test Canary (50%)
+      # 15.5. Canary health + traffic test (50%)
+      - name: 🌍 Canary validation at 50%
         id: canary-test-50
         continue-on-error: true
         run: |
-          echo "===== Testing Canary traffic at 50% ====="
+          echo "===== Validating Canary at 50% ====="
+
+          echo "--- Checking pod status ---"
+          # Fail if any Canary pod is in CrashLoopBackOff
+          if kubectl get pods -n app -l version=canary | grep -q "CrashLoopBackOff"; then
+            echo "❌ Canary pods are crashing"
+            exit 1
+          fi
+
+          echo "--- Running traffic test ---"
           for i in {1..5}; do
             kubectl run curl-canary50-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
               curl -s http://weather-app:8080 || exit 1
@@ -269,6 +278,7 @@ jobs:
           kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
           kubectl rollout status deployment/weather-blue -n app --timeout=60s
           exit 1
+
 
 
       # 16. Scale Canary to 100%
