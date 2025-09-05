@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weather-canary
+  namespace: app
+  labels:
+    app: weather-app
+    version: canary
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: weather-app
+      version: canary
+  template:
+    metadata:
+      labels:
+        app: weather-app
+        version: canary
+    spec:
+      containers:
+        - name: weather-app
+          image: weather-app:local
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /  
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
