@@ -79,36 +79,25 @@ jobs:
 
       # 9. Deploy Green with Bad Image (expected to fail)
       - name: 🟢 Deploy Green (Bad Image)
-        run: |
-          echo "===== Deploying Green with bad image ====="
-          kubectl set image -n app deployment/weather-green weather-app=weather-app:bad || \
-            kubectl apply -n app -f k8s/green-v2.yaml && \
-            kubectl set image -n app deployment/weather-green weather-app=weather-app:bad
-
-          echo "🔄 Waiting for Green rollout..."
-          if ! kubectl rollout status deployment/weather-green -n app --timeout=60s; then
-            echo "❌ Green rollout failed (bad image)!"
-            exit 1
-          fi
-
-      # 10. Traffic test (Green with bad image) + rollback safety
-      - name: 🌍 Traffic test (Green - Bad Image)
-        id: green-test
+        id: green-deploy
         continue-on-error: true
         run: |
-          echo "===== Testing Green traffic (expected FAIL) ====="
-          for i in {1..3}; do
-            kubectl run curl-green-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080 || exit 1
-          done
+          echo "===== Deploying Green with bad image ====="
+          kubectl apply -n app -f k8s/green-v2.yaml
+          kubectl set image deployment/weather-green -n app weather-app=weather-app:bad
+          echo "🔄 Waiting for Green rollout..."
+          kubectl rollout status deployment/weather-green -n app --timeout=60s
+          echo "⚠️ Rollout step finished (may have failed)"
 
-      - name: 🔁 Rollback to Blue if Green fails
-        if: steps.green-test.outcome == 'failure'
+      # 10. Rollback to Blue if rollout failed
+      - name: 🔁 Rollback to Blue if Green rollout fails
+        if: steps.green-deploy.outcome == 'failure'
         run: |
-          echo "❌ Green traffic test FAILED. Rolling back to Blue..."
+          echo "❌ Green rollout FAILED. Rolling back to Blue..."
           kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
           kubectl rollout status deployment/weather-blue -n app --timeout=60s
           echo "✅ Rollback complete (Blue active again)"
+
 
       # 11. Redeploy Green with Good Image (recover)
       - name: 🟢 Redeploy Green (Good Image)
