@@ -69,40 +69,35 @@ jobs:
           done
           echo "✅ Blue serving traffic"
 
-      # 8. Simulate Good → Bad Build (Dockerfile.bad)
-      - name: 🐳 Simulate Bad Build
-        continue-on-error: true
-        id: bad-build
+      # 8. Build Bad Image (simulate failure)
+      - name: 🐳 Build Bad Dockerfile
         run: |
           echo "===== Building bad image ====="
           docker build -t weather-app:bad -f Dockerfile.bad .
-          if [ $? -ne 0 ]; then
-            echo "❌ Bad build failed as expected"
+          kind load docker-image weather-app:bad --name weather-sim
+          echo "✅ Bad image built and loaded"
+
+      # 9. Deploy Green with Bad Image (expected to fail)
+      - name: 🟢 Deploy Green (Bad Image)
+        run: |
+          echo "===== Deploying Green with bad image ====="
+          kubectl set image -n app deployment/weather-green weather-app=weather-app:bad || \
+            kubectl apply -n app -f k8s/green-v2.yaml && \
+            kubectl set image -n app deployment/weather-green weather-app=weather-app:bad
+
+          echo "🔄 Waiting for Green rollout..."
+          if ! kubectl rollout status deployment/weather-green -n app --timeout=60s; then
+            echo "❌ Green rollout failed (bad image)!"
             exit 1
           fi
 
-      # 9. Simulate Good Build (Dockerfile)
-      - name: 🐳 Build Good Dockerfile
-        run: |
-          echo "===== Building good image ====="
-          docker build -t weather-app:good -f Dockerfile .
-          echo "✅ Good build succeeded"
-
-      # 10. Deploy Green (v2)
-      - name: 🟢 Deploy Green (v2)
-        run: |
-          kubectl apply -n app -f k8s/green-v2.yaml
-          kubectl rollout status deployment/weather-green -n app --timeout=60s
-          kubectl get pods -n app -l version=green
-          echo "✅ Green deployed"
-
-      # 11. Traffic test (Green) with rollback safety
-      - name: 🌍 Traffic test (Green)
+      # 10. Traffic test (Green with bad image) + rollback safety
+      - name: 🌍 Traffic test (Green - Bad Image)
         id: green-test
         continue-on-error: true
         run: |
-          echo "===== Testing Green traffic ====="
-          for i in {1..5}; do
+          echo "===== Testing Green traffic (expected FAIL) ====="
+          for i in {1..3}; do
             kubectl run curl-green-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
               curl -s http://weather-app:8080 || exit 1
           done
@@ -110,10 +105,21 @@ jobs:
       - name: 🔁 Rollback to Blue if Green fails
         if: steps.green-test.outcome == 'failure'
         run: |
-          echo "❌ Green failed. Rolling back..."
+          echo "❌ Green traffic test FAILED. Rolling back to Blue..."
           kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
           kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          exit 1
+          echo "✅ Rollback complete (Blue active again)"
+
+      # 11. Redeploy Green with Good Image (recover)
+      - name: 🟢 Redeploy Green (Good Image)
+        run: |
+          echo "===== Redeploying Green with good image ====="
+          docker build -t weather-app:good -f Dockerfile .
+          kind load docker-image weather-app:good --name weather-sim
+          kubectl set image deployment/weather-green -n app weather-app=weather-app:good
+          kubectl rollout status deployment/weather-green -n app --timeout=60s
+          echo "✅ Green redeployed successfully"
+
 
       # 12. Canary rollout simulation
       - name: 🟡 Canary rollout
