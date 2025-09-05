@@ -231,10 +231,10 @@ jobs:
       #     exit 1
 
 
-      # 15. Scale Canary to 50%
-      - name: 🟡 Scale Canary to 50% (with failure injection)
+      # 15. Scale Canary to 50% (force crash)
+      - name: 🟡 Scale Canary to 50% (with forced failure)
         run: |
-          echo "===== Scaling Canary to 50% and injecting failure ====="
+          echo "===== Scaling Canary to 50% and forcing pod crash ====="
           kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
           kubectl patch deployment weather-canary -n app -p '{
             "spec": {
@@ -242,11 +242,7 @@ jobs:
                 "spec": {
                   "containers": [{
                     "name": "weather-app",
-                    "readinessProbe": {
-                      "httpGet": { "path": "/fail", "port": 8080 },
-                      "initialDelaySeconds": 2,
-                      "periodSeconds": 3
-                    }
+                    "command": ["sh", "-c", "echo CRASHING && sleep 2 && exit 1"]
                   }]
                 }
               }
@@ -273,6 +269,7 @@ jobs:
           kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
           kubectl rollout status deployment/weather-blue -n app --timeout=60s
           exit 1
+
 
       # 16. Scale Canary to 100%
       - name: 🟡 Scale Canary to 100%
