@@ -232,47 +232,47 @@ jobs:
 
 
       # 15. Scale Canary to 50%
-        - name: 🟡 Scale Canary to 50% (with failure injection)
-          run: |
-            echo "===== Scaling Canary to 50% and injecting failure ====="
-            kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
-            kubectl patch deployment weather-canary -n app -p '{
-              "spec": {
-                "template": {
-                  "spec": {
-                    "containers": [{
-                      "name": "weather-app",
-                      "readinessProbe": {
-                        "httpGet": { "path": "/fail", "port": 8080 },
-                        "initialDelaySeconds": 2,
-                        "periodSeconds": 3
-                      }
-                    }]
-                  }
+      - name: 🟡 Scale Canary to 50% (with failure injection)
+        run: |
+          echo "===== Scaling Canary to 50% and injecting failure ====="
+          kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
+          kubectl patch deployment weather-canary -n app -p '{
+            "spec": {
+              "template": {
+                "spec": {
+                  "containers": [{
+                    "name": "weather-app",
+                    "readinessProbe": {
+                      "httpGet": { "path": "/fail", "port": 8080 },
+                      "initialDelaySeconds": 2,
+                      "periodSeconds": 3
+                    }
+                  }]
                 }
               }
-            }'
-            sleep 15
-            kubectl get pods -n app -o wide
+            }
+          }'
+          sleep 15
+          kubectl get pods -n app -o wide
 
-        # 15.5. Traffic test Canary (50%)
-        - name: 🌍 Traffic test Canary (50%)
-          id: canary-test-50
-          continue-on-error: true
-          run: |
-            echo "===== Testing Canary traffic at 50% ====="
-            for i in {1..5}; do
-              kubectl run curl-canary50-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-                curl -s http://weather-app:8080 || exit 1
-            done
+      # 15.5. Traffic test Canary (50%)
+      - name: 🌍 Traffic test Canary (50%)
+        id: canary-test-50
+        continue-on-error: true
+        run: |
+          echo "===== Testing Canary traffic at 50% ====="
+          for i in {1..5}; do
+            kubectl run curl-canary50-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
+              curl -s http://weather-app:8080 || exit 1
+          done
 
-        - name: 🔁 Rollback if Canary 50% fails
-          if: steps.canary-test-50.outcome == 'failure'
-          run: |
-            echo "❌ Canary 50% failed. Rolling back to Blue..."
-            kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-            kubectl rollout status deployment/weather-blue -n app --timeout=60s
-            exit 1
+      - name: 🔁 Rollback if Canary 50% fails
+        if: steps.canary-test-50.outcome == 'failure'
+        run: |
+          echo "❌ Canary 50% failed. Rolling back to Blue..."
+          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
+          kubectl rollout status deployment/weather-blue -n app --timeout=60s
+          exit 1
 
       # 16. Scale Canary to 100%
       - name: 🟡 Scale Canary to 100%
