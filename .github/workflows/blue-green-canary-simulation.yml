@@ -24,7 +24,7 @@ jobs:
       # 3. Build Docker image
       - name: 🏗 Build weather-app Docker image
         run: |
-          docker build -t weather-app:local .
+          docker build -t weather-app:good .
 
       # 4. Install Kind
       - name: ⚙ Install Kind
@@ -41,7 +41,7 @@ jobs:
       # 6. Load Docker image into Kind cluster
       - name: 🚢 Load Docker image into Kind
         run: |
-          kind load docker-image weather-app:local --name rollout-sim
+          kind load docker-image weather-app:good --name rollout-sim
 
       # 7. Install kubectl
       - name: 🛠 Install kubectl

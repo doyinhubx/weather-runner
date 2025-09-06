@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: weather-app
-          image: weather-app:local
+          image: weather-app:good
           ports:
             - containerPort: 8080
           livenessProbe:
