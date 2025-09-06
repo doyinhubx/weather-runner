@@ -125,13 +125,13 @@ jobs:
               port: 80
             replicaCount: 1
 
-      # 11. Merge bad image PR automatically
+      # 11. Merge bad image PR automatically using the GitHub CLI
       - name: Merge bad deployment PR
-        uses: peter-evans/merge-pull-request@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request: ${{ steps.bad_pr.outputs.pull-request-number }}
-          merge-method: squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Merging pull request ${{ steps.bad_pr.outputs.pull-request-number }}"
+          gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
       # 12. Check for bad image failure
       - name: Check for bad image failure and rollback
