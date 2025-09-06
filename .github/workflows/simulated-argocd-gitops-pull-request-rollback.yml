@@ -112,11 +112,18 @@ jobs:
           author: "github-actions <github-actions@github.com>"
 
       # 11. Auto-merge the PR (optional, fully automated)
-      - name: Auto-merge PR
-        uses: devops-infra/action-pull-request-merge@v0.4.3
+      # - name: Auto-merge PR
+      #   uses: devops-infra/action-pull-request-merge@v0.4.3
+      #   with:
+      #     github_token: ${{ secrets.GH_TOKEN }}
+      #     merge_method: squash
+      - name: Merge deployment PR
+        uses: peter-evans/merge-pull-request@v3
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
-          merge_method: squash
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request: ${{ steps.create_pr.outputs.pull-request-number }}
+          merge-method: squash
+
 
       # 12. Wait for ArgoCD sync
       - name: Wait for ArgoCD to sync deployment
