@@ -93,11 +93,16 @@ jobs:
           docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
           docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 10. Update values.yaml and create PR for deployment
-      - name: Update values.yaml and create PR
+      # 10a. Update values.yaml
+      - name: Update values.yaml with new image tag
+        run: |
+          sed -i 's/tag:.*/tag: "${{ matrix.tag }}"/' weather-app-helms/values.yaml
+
+      # 10b. Create PR
+      - name: Create Pull Request for deployment
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
           commit-message: "Deploy image ${{ matrix.tag }}"
           title: "Deploy image ${{ matrix.tag }}"
           body: "Automated PR to deploy image tag ${{ matrix.tag }}"
@@ -105,16 +110,12 @@ jobs:
           base: main
           paths: weather-app-helms/values.yaml
           author: "github-actions <github-actions@github.com>"
-        env:
-          TAG: ${{ matrix.tag }}
-        run: |
-          sed -i 's/tag:.*/tag: "'$TAG'"/' weather-app-helms/values.yaml
 
       # 11. Auto-merge the PR (optional, fully automated)
       - name: Auto-merge PR
         uses: devops-infra/action-pull-request-merge@v0.4.3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
           merge_method: squash
 
       # 12. Wait for ArgoCD sync
