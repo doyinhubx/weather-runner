@@ -80,19 +80,19 @@ jobs:
           echo "=== Pod Status ==="
           kubectl get pods -n app -o wide
           
-          echo "=== Pod Details ==="
-          kubectl describe pods -n app -l version=blue
+          # echo "=== Pod Details ==="
+          # kubectl describe pods -n app -l version=blue
           
-          echo "=== Deployment Status ==="
-          kubectl describe deployment/weather-blue -n app
+          # echo "=== Deployment Status ==="
+          # kubectl describe deployment/weather-blue -n app
           
-          echo "=== Readiness Probe Debug ==="
-          for pod in $(kubectl get pods -n app -l version=blue -o name); do
-            echo "--- Debugging $pod ---"
-            kubectl exec -n app $pod -- curl -s http://localhost:8080/ || echo "Cannot connect to app"
-            kubectl exec -n app $pod -- netstat -tln || echo "Netstat not available"
-            kubectl exec -n app $pod -- ps aux || echo "PS not available"
-          done
+          # echo "=== Readiness Probe Debug ==="
+          # for pod in $(kubectl get pods -n app -l version=blue -o name); do
+          #   echo "--- Debugging $pod ---"
+          #   kubectl exec -n app $pod -- curl -s http://localhost:8080/ || echo "Cannot connect to app"
+          #   kubectl exec -n app $pod -- netstat -tln || echo "Netstat not available"
+          #   kubectl exec -n app $pod -- ps aux || echo "PS not available"
+          # done
           
           # Now try to check rollout status
           timeout 30s kubectl rollout status deployment/weather-blue -n app || \
