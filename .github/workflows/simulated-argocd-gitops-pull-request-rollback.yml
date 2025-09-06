@@ -12,7 +12,6 @@ jobs:
     env:
       KUBECONFIG: ${{ github.workspace }}/kubeconfig
 
-
     permissions: # <-- Add this permissions block
       contents: write
       pull-requests: write
@@ -108,7 +107,7 @@ jobs:
         id: bad_pr
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Deploy bad image"
           title: "Deploy bad image"
           body: "Automated PR to deploy bad image for rollback test."
@@ -130,7 +129,7 @@ jobs:
       - name: Merge bad deployment PR
         uses: peter-evans/merge-pull-request@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           pull-request: ${{ steps.bad_pr.outputs.pull-request-number }}
           merge-method: squash
 
