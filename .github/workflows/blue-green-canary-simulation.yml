@@ -1,325 +1,158 @@
-name: Simulate Good → Bad → Good Deployment with ArgoCD + Image Updater
+name: Blue-Green Canary Simulation
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  deploy-simulation:
+  rollout-simulation:
     runs-on: ubuntu-latest
 
+    env:
+      KUBECONFIG: ${{ github.workspace }}/kubeconfig
+
     steps:
-      # 1. Checkout repository
-      - name: 📥 Checkout Repo
+      # 1. Checkout repo
+      - name: 📥 Checkout repo
         uses: actions/checkout@v4
 
-      # 2. Setup Kind cluster
-      - name: 🚀 Setup Kind Cluster
-        uses: helm/kind-action@v1
-        with:
-          cluster_name: weather-sim
+      # 2. Set up Docker
+      - name: 🐳 Set up Docker
+        uses: docker/setup-buildx-action@v3
 
-      # 3. Install ArgoCD
-      - name: ⚙️ Install ArgoCD
+      # 3. Build Docker image
+      - name: 🏗 Build weather-app Docker image
         run: |
-          echo "===== Installing ArgoCD ====="
+          docker build -t weather-app:local .
+
+      # 4. Install Kind
+      - name: ⚙ Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.26.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      # 5. Create Kind cluster
+      - name: 🖥 Create Kind cluster
+        run: |
+          kind create cluster --name rollout-sim --kubeconfig $KUBECONFIG
+
+      # 6. Load Docker image into Kind cluster
+      - name: 🚢 Load Docker image into Kind
+        run: |
+          kind load docker-image weather-app:local --name rollout-sim
+
+      # 7. Install kubectl
+      - name: 🛠 Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      # 8. Install Helm
+      - name: ⛵ Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # 9. Install ArgoCD
+      - name: 🎛 Install ArgoCD
+        run: |
           kubectl create namespace argocd
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-          echo "✅ ArgoCD installed"
+          kubectl wait --for=condition=available --timeout=180s deployment/argocd-server -n argocd
 
-      # 4. Apply namespace for app
-      - name: 📦 Create App Namespace
+      # 10. Create app namespace
+      - name: 📦 Create app namespace
         run: |
           kubectl create namespace app || true
 
-      # 5. Apply Service (shared across rollouts)
-      - name: 🌐 Apply weather-app Service
+      # 11. Blue-Green Deployment: Deploy v1 (Blue)
+      - name: 🔵 Deploy v1 (Blue) with detailed debugging
         run: |
-          kubectl apply -n app -f k8s/service.yaml
-          echo "✅ Service applied"
-      
-      # 6. Deploy Blue (v1)
-      - name: 🚀 Deploy Blue (Good Image)
-        run: |
-          docker build -t weather-app:good -f Dockerfile .
-          kind load docker-image weather-app:good --name weather-sim
+          echo "Deploying Blue version (v1)..."
           kubectl apply -n app -f k8s/blue-v1.yaml
-
-          echo "🔄 Waiting for Blue rollout..."
-          if ! kubectl rollout status deployment/weather-blue -n app --timeout=60s; then
-            echo "❌ Rollout failed! Dumping pod info & logs..."
-            kubectl get pods -n app -l version=blue -o wide
-            kubectl describe pods -n app -l version=blue
-            for pod in $(kubectl get pods -n app -l version=blue -o jsonpath='{.items[*].metadata.name}'); do
-              echo "===== Logs from $pod ====="
-              kubectl logs "$pod" -n app || true
-            done
-            exit 1
-          fi
-          echo "✅ Blue deployment successful"
-          echo "=================================================="
-
-      
-      # 7. Traffic test (Blue)
-      - name: 🌍 Traffic test (Blue)
-        run: |
-          for i in {1..5}; do
-            kubectl run curl-blue-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080
+          
+          # Wait a bit for pods to start
+          sleep 10
+          
+          # Get detailed debug information
+          echo "=== Pod Status ==="
+          kubectl get pods -n app -o wide
+          
+          echo "=== Pod Details ==="
+          kubectl describe pods -n app -l version=blue
+          
+          echo "=== Deployment Status ==="
+          kubectl describe deployment/weather-blue -n app
+          
+          echo "=== Readiness Probe Debug ==="
+          for pod in $(kubectl get pods -n app -l version=blue -o name); do
+            echo "--- Debugging $pod ---"
+            kubectl exec -n app $pod -- curl -s http://localhost:8080/ || echo "Cannot connect to app"
+            kubectl exec -n app $pod -- netstat -tln || echo "Netstat not available"
+            kubectl exec -n app $pod -- ps aux || echo "PS not available"
           done
-          echo "✅ Blue serving traffic"
+          
+          # Now try to check rollout status
+          timeout 30s kubectl rollout status deployment/weather-blue -n app || \
+          (echo "Rollout failed - check above debug info" && exit 1)
 
-      # 8. Build Bad Image (simulate failure)
-      - name: 🐳 Build Bad Dockerfile
+      # 12. Blue-Green Deployment: Deploy v2 (Green)
+      - name: 🟢 Deploy v2 (Green) and switch service
         run: |
-          echo "===== Building bad image ====="
-          docker build -t weather-app:bad -f Dockerfile.bad .
-          kind load docker-image weather-app:bad --name weather-sim
-          echo "✅ Bad image built and loaded"
-
-      # 9. Deploy Green with Bad Image (expected to fail)
-      - name: 🟢 Deploy Green (Bad Image)
-        id: green-deploy
-        continue-on-error: true
-        run: |
-          echo "===== Deploying Green with bad image ====="
+          echo "Deploying Green version (v2)..."
           kubectl apply -n app -f k8s/green-v2.yaml
-          kubectl set image deployment/weather-green -n app weather-app=weather-app:bad
-          echo "🔄 Waiting for Green rollout..."
-          kubectl rollout status deployment/weather-green -n app --timeout=60s
-          echo "⚠️ Rollout step finished (may have failed)"
+          kubectl rollout status deployment/weather-green -n app
+          echo "Switching Service to Green..."
+          kubectl apply -n app -f k8s/switch-to-green.yaml
+          kubectl get svc -n app weather-app
+          kubectl get pods -n app -l version=green -o wide
 
-      # 10. Rollback to Blue if rollout failed
-      - name: 🔁 Rollback to Blue if Green rollout fails
-        if: steps.green-deploy.outcome == 'failure'
+      # 13. Canary rollout simulation
+      - name: 🟡 Canary rollout
         run: |
-          echo "❌ Green rollout FAILED. Rolling back to Blue..."
-          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          echo "✅ Rollback complete (Blue active again)"
-
-
-      # 11. Redeploy Green with Good Image (recover)
-      - name: 🟢 Redeploy Green (Good Image)
-        run: |
-          echo "===== Redeploying Green with good image ====="
-          docker build -t weather-app:good -f Dockerfile .
-          kind load docker-image weather-app:good --name weather-sim
-          kubectl set image deployment/weather-green -n app weather-app=weather-app:good
-          kubectl rollout status deployment/weather-green -n app --timeout=60s
-          echo "✅ Green redeployed successfully"
-
-
-      # # 12. Canary rollout simulation
-      # - name: 🟡 Canary rollout
-      #   run: |
-      #     echo "===== Starting Canary rollout ====="
-      #     kubectl apply -n app -f k8s/canary-v2-10.yaml
-      #     kubectl rollout status deployment/weather-canary -n app --timeout=60s
-      #     kubectl get pods -n app -o wide
-
-      #     echo "Scaling Canary to 50%..."
-      #     kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
-      #     sleep 15
-      #     kubectl get pods -n app -o wide
-
-      #     echo "Scaling Canary to 100%..."
-      #     kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":4}}'
-      #     sleep 15
-      #     kubectl get pods -n app -o wide
-      #     echo "✅ Canary scaled to 100%"
-
-      # # 13. Traffic test (Canary) with rollback safety
-      # - name: 🌍 Traffic test (Canary)
-      #   id: canary-test
-      #   continue-on-error: true
-      #   run: |
-      #     echo "===== Testing Canary traffic ====="
-      #     for i in {1..10}; do
-      #       kubectl run curl-canary-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-      #         curl -s http://weather-app:8080 || exit 1
-      #     done
-
-      # - name: 🔁 Rollback to Blue if Canary fails
-      #   if: steps.canary-test.outcome == 'failure'
-      #   run: |
-      #     echo "❌ Canary failed. Rolling back..."
-      #     kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-      #     kubectl rollout status deployment/weather-blue -n app --timeout=60s
-      #     exit 1
-
-
-      # 12. Canary rollout simulation (start small)
-      - name: 🟡 Canary rollout - 10%
-        run: |
-          echo "===== Starting Canary rollout at 10% ====="
+          echo "Starting Canary rollout..."
           kubectl apply -n app -f k8s/canary-v2-10.yaml
-          kubectl rollout status deployment/weather-canary -n app --timeout=60s
+          kubectl rollout status deployment/weather-canary -n app --timeout=30s
           kubectl get pods -n app -o wide
-
-      # 13. Traffic test Canary (10%)
-      - name: 🌍 Traffic test Canary (10%)
-        id: canary-test-10
-        continue-on-error: true
-        run: |
-          echo "===== Testing Canary traffic at 10% ====="
-          for i in {1..5}; do
-            kubectl run curl-canary10-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080 || exit 1
-          done
-
-      - name: 🔁 Rollback if Canary 10% fails
-        if: steps.canary-test-10.outcome == 'failure'
-        run: |
-          echo "❌ Canary 10% failed. Rolling back to Blue..."
-          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          exit 1
-
-      # 14. Scale Canary to 25%
-      - name: 🟡 Scale Canary to 25%
-        run: |
-          echo "===== Scaling Canary to 25% ====="
-          kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":1}}'
-          sleep 15
-          kubectl get pods -n app -o wide
-
-      # 14.5. Traffic test Canary (25%)
-      - name: 🌍 Traffic test Canary (25%)
-        id: canary-test-25
-        continue-on-error: true
-        run: |
-          echo "===== Testing Canary traffic at 25% ====="
-          for i in {1..5}; do
-            kubectl run curl-canary25-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080 || exit 1
-          done
-
-      - name: 🔁 Rollback if Canary 25% fails
-        if: steps.canary-test-25.outcome == 'failure'
-        run: |
-          echo "❌ Canary 25% failed. Rolling back to Blue..."
-          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          exit 1
-
-      # # 15. Scale Canary to 50%
-      # - name: 🟡 Scale Canary to 50%
-      #   run: |
-      #     echo "===== Scaling Canary to 50% ====="
-      #     kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
-      #     sleep 15
-      #     kubectl get pods -n app -o wide
-
-      # # 15.5. Traffic test Canary (50%)
-      # - name: 🌍 Traffic test Canary (50%)
-      #   id: canary-test-50
-      #   continue-on-error: true
-      #   run: |
-      #     echo "===== Testing Canary traffic at 50% ====="
-      #     for i in {1..5}; do
-      #       kubectl run curl-canary50-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-      #         curl -s http://weather-app:8080 || exit 1
-      #     done
-
-      # - name: 🔁 Rollback if Canary 50% fails
-      #   if: steps.canary-test-50.outcome == 'failure'
-      #   run: |
-      #     echo "❌ Canary 50% failed. Rolling back to Blue..."
-      #     kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-      #     kubectl rollout status deployment/weather-blue -n app --timeout=60s
-      #     exit 1
-
-
-      # 15. Scale Canary to 50% (force crash)
-      - name: 🟡 Scale Canary to 50% (with forced failure)
-        run: |
-          echo "===== Scaling Canary to 50% and forcing pod crash ====="
+          
+          echo "Scaling to 25%..."
           kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":2}}'
-          kubectl patch deployment weather-canary -n app -p '{
-            "spec": {
-              "template": {
-                "spec": {
-                  "containers": [{
-                    "name": "weather-app",
-                    "command": ["sh", "-c", "echo CRASHING && sleep 2 && exit 1"]
-                  }]
-                }
-              }
-            }
-          }'
-          sleep 15
+          sleep 20
           kubectl get pods -n app -o wide
 
-      # 15.5. Canary health + traffic test (50%)
-      - name: 🌍 Canary validation at 50%
-        id: canary-test-50
-        continue-on-error: true
-        run: |
-          echo "===== Validating Canary at 50% ====="
-
-          echo "--- Checking pod status ---"
-          # Fail if any Canary pod is in CrashLoopBackOff
-          if kubectl get pods -n app -l version=canary | grep -q "CrashLoopBackOff"; then
-            echo "❌ Canary pods are crashing"
-            exit 1
-          fi
-
-          echo "--- Running traffic test ---"
-          for i in {1..5}; do
-            kubectl run curl-canary50-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080 || exit 1
-          done
-
-      - name: 🔁 Rollback if Canary 50% fails
-        if: steps.canary-test-50.outcome == 'failure'
-        run: |
-          echo "❌ Canary 50% failed. Rolling back to Blue..."
-          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          echo "✅ Rollback complete. Cluster stable on Blue."
-          # exit 0 keeps workflow green even after rollback
-          exit 0
-
-      # 16. Scale Canary to 100%
-      - name: 🟡 Scale Canary to 100%
-        run: |
-          echo "===== Scaling Canary to 100% ====="
+          echo "Scaling to 50%..."
+          kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":3}}'
+          sleep 20
+          kubectl get pods -n app -o wide
+          
+          echo "Scaling to 100%..."
           kubectl patch deployment weather-canary -n app -p '{"spec":{"replicas":4}}'
-          sleep 15
+          sleep 20
           kubectl get pods -n app -o wide
 
-      # 16.5. Traffic test Canary (100%)
-      - name: 🌍 Traffic test Canary (100%)
-        id: canary-test-100
-        continue-on-error: true
+      # 14. Display rollout status
+      - name: 📊 Show rollout status
         run: |
-          echo "===== Testing Canary traffic at 100% ====="
-          for i in {1..5}; do
-            kubectl run curl-canary100-$i --rm -i --restart=Never --image=curlimages/curl -n app -- \
-              curl -s http://weather-app:8080 || exit 1
-          done
+          echo "===== Deployment Status ====="
+          kubectl get deployments -n app -o wide
+          kubectl get pods -n app -o wide
+          kubectl get svc -n app
 
-      - name: 🔁 Rollback if Canary 100% fails
-        if: steps.canary-test-100.outcome == 'failure'
+      # 15. Rollback simulation
+      - name: 🔁 Rollback to Blue
         run: |
-          echo "❌ Canary 100% failed. Rolling back to Blue..."
-          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          exit 1
+          echo "Rolling back to Blue (v1)..."
+          kubectl apply -n app -f k8s/blue-v1.yaml
+          kubectl apply -n app -f k8s/switch-to-blue.yaml
+          kubectl rollout status deployment/weather-blue -n app
+          kubectl get pods -n app -l version=blue -o wide
+          kubectl get svc -n app
 
-      # 17. Explicit rollback at end
-      - name: 🔙 Rollback to Blue (final reset)
-        run: |
-          echo "===== Resetting Service to Blue ====="
-          kubectl patch service weather-app -n app -p '{"spec":{"selector":{"app":"weather-app","version":"blue"}}}'
-          kubectl rollout status deployment/weather-blue -n app --timeout=60s
-          echo "✅ Cluster reset to Blue"
-
-      # 15. Final Cleanup
-      - name: 🧹 Cleanup Kind Cluster
+      # 16. Cleanup Kind cluster
+      - name: 🧹 Cleanup
         if: always()
         run: |
-          echo "===== Deleting Kind cluster ====="
-          kind delete cluster --name weather-sim
-          echo "✅ Cleanup complete"
+          echo "Cleaning up Kind cluster..."
+          kind delete cluster --name rollout-sim
