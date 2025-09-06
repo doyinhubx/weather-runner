@@ -12,6 +12,11 @@ jobs:
     env:
       KUBECONFIG: ${{ github.workspace }}/kubeconfig
 
+
+    permissions: # <-- Add this permissions block
+      contents: write
+      pull-requests: write
+
     steps:
       # 1. Checkout repository
       - name: Checkout Repo
