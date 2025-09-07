@@ -1,105 +1,148 @@
-# .github/workflows/cicd-simulation.yaml
+# .github/workflows/cicd-simulation-pr-rollout.yaml
 name: CI/CD Simulation with ArgoCD (GitOps PR Rollback)
 
 on:
-  push:
-    branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-  deploy-simulation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      KUBECONFIG: ${{ github.workspace }}/kubeconfig
+  deploy-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      KUBECONFIG: ${{ github.workspace }}/kubeconfig
 
-    permissions:
-      contents: write
-      pull-requests: write
+    permissions:
+      contents: write
+      pull-requests: write
 
-    steps:
-      # 1. Checkout repository
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2. Configure Git
-      - name: Configure Git
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+      # 2. Configure Git
+      - name: Configure Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
 
-      # 3. Install tools
-      - name: Install kubectl, kind, helm
-        run: |
-          curl -sLo kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          chmod +x kind && sudo mv kind /usr/local/bin/
-          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      # 3. Install required tools
+      - name: Install tools
+        run: |
+          curl -sLo kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - name: Install GitHub CLI
+        run: |
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo apt update
+          sudo apt install gh -y
 
-      # 4. Docker login
-      - name: Docker login
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # 4. Docker login
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5. Build & Push images
-      - name: Build & Push Images
-        run: |
-          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good -f Dockerfile.good .
-          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good
-          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
-          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
+      # 5. Build & Push Docker images
+      - name: Build & Push Images
+        run: |
+          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good -f Dockerfile.good .
+          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good
+          docker build -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad -f Dockerfile.bad .
+          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad
 
-      # 6. Create Kind cluster
-      - name: Create Kind cluster
-        run: kind create cluster --name argocd-cluster --kubeconfig $KUBECONFIG
+      # 6. Create Kind cluster
+      - name: Create Kind cluster
+        run: kind create cluster --name argocd-cluster --kubeconfig $KUBECONFIG
 
-      # 7. Install ArgoCD
-      - name: Install ArgoCD
-        run: |
-          kubectl create namespace argocd
-          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
+      # 7. Install ArgoCD
+      - name: Install ArgoCD
+        run: |
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
 
-      # 8. Create target namespace
-      - name: Create helms namespace
-        run: kubectl create namespace helms || true
+      # 8. Create target namespace
+      - name: Create helms namespace
+        run: kubectl create namespace helms || true
 
-      # 9. Apply Application manifest
-      - name: Apply Application manifest
-        run: |
-          kubectl apply -f - <<EOF
-          apiVersion: argoproj.io/v1alpha1
-          kind: Application
-          metadata:
-            name: weather-app
-            namespace: argocd
-            annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
-              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
-              argocd-image-updater.argoproj.io/write-back-method: git
-          spec:
-            project: default
-            source:
-              repoURL: https://github.com/${{ github.repository }}
-              targetRevision: main
-              path: weather-app-helms
-              helm:
-                valueFiles: ["values.yaml"]
-            destination:
-              server: https://kubernetes.default.svc
-              namespace: helms
-            syncPolicy:
-              automated: {}
-          EOF
+      # 9. Apply ArgoCD Application manifest
+      - name: Apply Application manifest
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: weather-app
+            namespace: argocd
+            annotations:
+              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+              argocd-image-updater.argoproj.io/write-back-method: git
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/${{ github.repository }}
+              targetRevision: main
+              path: weather-app-helms
+              helm:
+                valueFiles: ["values.yaml"]
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: helms
+            syncPolicy:
+              automated: {}
+          EOF
 
-      # 10. Update values.yaml for an initial good deployment and create PR
-      - name: Deploy initial good image
-        id: good_pr_initial
+      # 10. Function to wait for ArgoCD health status
+      - name: Wait for ArgoCD Application Healthy
+        run: |
+          wait_for_health() {
+            local status=""
+            local timeout=300
+            local interval=10
+            local elapsed=0
+            while true; do
+              status=$(kubectl get application weather-app -n argocd -o jsonpath='{.status.health.status}')
+              if [[ "$status" == "Healthy" ]]; then
+                echo "✅ Application is Healthy"
+                break
+              fi
+              if [[ $elapsed -ge $timeout ]]; then
+                echo "❌ Timeout waiting for Healthy status"
+                exit 1
+              fi
+              echo "Current status: $status. Waiting..."
+              sleep $interval
+              elapsed=$((elapsed + interval))
+            done
+          }
+
+      # 11. Deploy initial good image via PR
+      - name: Update values.yaml to good
+        run: |
+          cat > weather-app-helms/values.yaml <<EOF
+          image:
+            repository: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+            tag: "good"
+            pullPolicy: IfNotPresent
+          service:
+            type: ClusterIP
+            port: 80
+          replicaCount: 1
+          EOF
+
+      - name: Create PR for initial good deployment
+        id: good_pr
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -108,33 +151,32 @@ jobs:
           branch: "deploy-good-initial"
           base: main
           paths: weather-app-helms/values.yaml
-          add-paths: '["weather-app-helms/values.yaml"]'
-          content: |
-            image:
-              repository: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
-              tag: "good"
-              pullPolicy: IfNotPresent
-            service:
-              type: ClusterIP
-              port: 80
-            replicaCount: 1
-      
-      # 11. Merge initial good image PR automatically using the GitHub CLI
-      - name: Merge initial good deployment PR
+
+      - name: Merge PR for initial good deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Merging initial good pull request ${{ steps.good_pr_initial.outputs.pull-request-number }}"
-          gh pr merge ${{ steps.good_pr_initial.outputs.pull-request-number }} --squash --delete-branch
-          
-      # 12. Wait for initial good deployment to be healthy
+          gh pr merge ${{ steps.good_pr.outputs.pull-request-number }} --squash --delete-branch
+
       - name: Wait for initial good deployment
         run: |
-          echo "⏳ Waiting for initial good deployment..."
-          kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+          bash -c 'wait_for_health'
 
-      # 13. Update values.yaml for a bad deployment and create PR
-      - name: Deploy bad image
+      # 12. Deploy bad image via PR
+      - name: Update values.yaml to bad
+        run: |
+          cat > weather-app-helms/values.yaml <<EOF
+          image:
+            repository: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+            tag: "bad"
+            pullPolicy: IfNotPresent
+          service:
+            type: ClusterIP
+            port: 80
+          replicaCount: 1
+          EOF
+
+      - name: Create PR for bad deployment
         id: bad_pr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -145,44 +187,47 @@ jobs:
           branch: "deploy-bad"
           base: main
           paths: weather-app-helms/values.yaml
-          add-paths: '["weather-app-helms/values.yaml"]'
-          content: |
-            image:
-              repository: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
-              tag: "bad"
-              pullPolicy: IfNotPresent
-            service:
-              type: ClusterIP
-              port: 80
-            replicaCount: 1
 
-      # 14. Merge bad image PR automatically using the GitHub CLI
-      - name: Merge bad deployment PR
+      - name: Merge PR for bad deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Merging pull request ${{ steps.bad_pr.outputs.pull-request-number }}"
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
-      # 15. Check for bad image failure and rollback
-      - name: Check for bad image failure and rollback
+      # 13. Wait for bad deployment to become degraded and rollback
+      - name: Check bad deployment and rollback
         run: |
-          echo "⏳ Waiting for bad image deployment to fail..."
-          kubectl wait --for=jsonpath='{.status.health.status}'=Degraded application/weather-app -n argocd --timeout=300s || true
+          echo "⏳ Waiting for bad deployment to become Degraded..."
+          timeout=120
+          interval=5
+          elapsed=0
+          while true; do
+            status=$(kubectl get application weather-app -n argocd -o jsonpath='{.status.health.status}')
+            if [[ "$status" == "Degraded" ]]; then
+              echo "❌ Bad image deployment failed as expected."
+              break
+            fi
+            if [[ $elapsed -ge $timeout ]]; then
+              echo "⚠️ Timeout waiting for Degraded. Proceeding to rollback."
+              break
+            fi
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
 
+          # Rollback by reverting bad commit
           git fetch origin main
           git checkout main
-
-          # Create a new commit to revert the changes
-          git revert HEAD --no-edit --no-commit
-          git commit -m "Rollback to good image after bad deployment failed"
+          git revert HEAD --no-edit
           git push origin main
-          
-          echo "✅ Rollback triggered by reverting bad commit."
-          echo "Waiting for ArgoCD to reconcile to the good image."
-          kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+          echo "🔄 Rollback triggered."
 
-      # 16. Verify final deployment
+      # 14. Wait for rollback to complete
+      - name: Wait for rollback to Healthy
+        run: |
+          bash -c 'wait_for_health'
+
+      # 15. Verify final deployment
       - name: Verify final deployment
         run: |
           FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
@@ -194,8 +239,8 @@ jobs:
             kubectl describe deployment weather-app -n helms
             exit 1
           fi
-          
-      # 17. Cleanup
+
+      # 16. Cleanup
       - name: Cleanup Kind cluster
         if: always()
         run: kind delete cluster --name argocd-cluster || true
