@@ -177,17 +177,20 @@ jobs:
         run: |
           echo "⏳ Waiting for bad image to roll out..."
           
-          # Auto-detect deployment in the helms namespace
-          DEPLOY=$(kubectl get deployments -n helms -o name | head -n1)
+          # Auto-detect weather-app deployment across all namespaces
+          DEPLOY=$(kubectl get deployments -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name' | grep weather-app | awk '{print $1"/"$2}' | head -n1)
           echo "Found deployment: $DEPLOY"
 
           if [ -z "$DEPLOY" ]; then
-            echo "❌ No deployment found in namespace helms"
+            echo "❌ No weather-app deployment found in any namespace"
             exit 1
           fi
 
+          NS=$(echo $DEPLOY | cut -d'/' -f1)
+          NAME=$(echo $DEPLOY | cut -d'/' -f2)
+
           for i in {1..30}; do
-            IMAGE=$(kubectl get $DEPLOY -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+            IMAGE=$(kubectl get deployment $NAME -n $NS -o jsonpath="{.spec.template.spec.containers[0].image}")
             echo "Current image: $IMAGE"
             if [[ "$IMAGE" == *":bad" ]]; then
               echo "❌ Bad image deployed — triggering rollback"
@@ -202,6 +205,7 @@ jobs:
           git revert HEAD --no-edit --no-commit || true
           git commit -m "Rollback to good image after bad deployment"
           git push origin main
+
 
 
       # 16. Rollback to previous good commit (exclude workflow files)
