@@ -154,11 +154,14 @@ jobs:
         run: |
           git fetch origin main
           git checkout main
+          git pull --rebase origin main   # 🔑 ensures we have latest state
+
           git revert HEAD --no-edit
           git push origin main
 
           echo "✅ Rollback pushed. Waiting for ArgoCD to reconcile..."
           kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+
 
       # 17. Verify
       - name: Verify final deployment
