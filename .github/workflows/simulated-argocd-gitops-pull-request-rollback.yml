@@ -15,7 +15,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      workflows: write   # 🔑 allow updating workflow files
 
     steps:
       # 1. Checkout repository
