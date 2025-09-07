@@ -93,7 +93,11 @@ jobs:
               automated: {}
           EOF
 
-      # 10. Create PR for good image
+            # 10. Update values.yaml and Create PR for good image
+      - name: Update values.yaml for good image
+        run: |
+          sed -i "s|image: .*|image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good|" weather-app-helms/values.yaml
+
       - name: Deploy initial good image
         id: good_pr_initial
         uses: peter-evans/create-pull-request@v5
@@ -108,20 +112,19 @@ jobs:
           body: "Automated PR for good image"
           labels: deploy
 
-      # 11. Merge PR for good image
+      # 11. Merge PR for good image (only if PR exists)
       - name: Merge initial good PR
+        if: steps.good_pr_initial.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh pr merge ${{ steps.good_pr_initial.outputs.pull-request-number }} --squash --delete-branch
 
-      # 12. Wait for good deployment
-      - name: Wait for initial good deployment
+      # 13. Update values.yaml and Create PR for bad image
+      - name: Update values.yaml for bad image
         run: |
-          echo "⏳ Waiting for good deployment..."
-          kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+          sed -i "s|image: .*|image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:bad|" weather-app-helms/values.yaml
 
-      # 13. Create PR for bad image
       - name: Deploy bad image
         id: bad_pr
         uses: peter-evans/create-pull-request@v5
@@ -136,13 +139,14 @@ jobs:
           body: "Automated PR for bad image"
           labels: deploy
 
-      # 14. Merge PR for bad image
+      # 14. Merge PR for bad image (only if PR exists)
       - name: Merge bad PR
+        if: steps.bad_pr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
-
+          
       # 15. Wait for failure
       - name: Wait for bad image failure
         run: |
