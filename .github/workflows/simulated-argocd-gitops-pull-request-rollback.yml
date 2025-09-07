@@ -93,7 +93,7 @@ jobs:
               automated: {}
           EOF
 
-            # 10. Update values.yaml and Create PR for good image
+      # 10. Update values.yaml and Create PR for good image
       - name: Update values.yaml for good image
         run: |
           sed -i "s|image: .*|image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:good|" weather-app-helms/values.yaml
@@ -151,7 +151,21 @@ jobs:
       - name: Wait for bad image failure
         run: |
           echo "⏳ Waiting for bad image to fail..."
-          kubectl wait --for=jsonpath='{.status.health.status}'=Degraded application/weather-app -n argocd --timeout=300s || true
+          for i in {1..30}; do
+            STATUS=$(kubectl get application/weather-app -n argocd -o jsonpath='{.status.health.status}')
+            echo "Current ArgoCD status: $STATUS"
+            if [[ "$STATUS" == "Degraded" ]]; then
+              echo "❌ App degraded as expected"
+              exit 0
+            fi
+            if [[ "$STATUS" == "Progressing" ]]; then
+              echo "⚠️ Still progressing… giving it more time"
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for failure!"
+          exit 1
+
 
       # 16. Rollback to previous good commit (exclude workflow files)
       - name: Rollback deployment
@@ -169,8 +183,6 @@ jobs:
 
           echo "✅ Rollback pushed. Waiting for ArgoCD to reconcile..."
           kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
-
-
 
       # 17. Verify
       - name: Verify final deployment
