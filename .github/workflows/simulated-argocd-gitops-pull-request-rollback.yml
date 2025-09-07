@@ -152,7 +152,7 @@ jobs:
         run: |
           echo "⏳ Waiting for bad image to roll out..."
           for i in {1..30}; do
-            IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+            IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
             echo "Current image: $IMAGE"
             if [[ "$IMAGE" == *":bad" ]]; then
               echo "❌ Bad image deployed — triggering rollback"
