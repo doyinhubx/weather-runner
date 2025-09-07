@@ -147,12 +147,42 @@ jobs:
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
-      # 15. Detect bad image instead of waiting for ArgoCD
+      # # 15. Detect bad image instead of waiting for ArgoCD
+      # - name: Detect bad image and rollback
+      #   run: |
+      #     echo "⏳ Waiting for bad image to roll out..."
+      #     for i in {1..30}; do
+      #       IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+      #       echo "Current image: $IMAGE"
+      #       if [[ "$IMAGE" == *":bad" ]]; then
+      #         echo "❌ Bad image deployed — triggering rollback"
+      #         break
+      #       fi
+      #       sleep 10
+      #     done
+
+      #     git fetch origin main
+      #     git checkout main
+      #     git pull --rebase origin main
+
+      #     git revert HEAD --no-edit --no-commit || true
+      #     git commit -m "Rollback to good image after bad deployment"
+      #     git push origin main
+
+      #     echo "✅ Rollback pushed. Waiting for ArgoCD..."
+      #     kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+
+
       - name: Detect bad image and rollback
         run: |
           echo "⏳ Waiting for bad image to roll out..."
+          
+          # Find the Deployment managed by ArgoCD app
+          DEPLOY=$(kubectl get deployments -n helms -o name | grep weather | head -n1)
+          echo "Found deployment: $DEPLOY"
+
           for i in {1..30}; do
-            IMAGE=$(kubectl get deployment weather-app-helms -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+            IMAGE=$(kubectl get $DEPLOY -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
             echo "Current image: $IMAGE"
             if [[ "$IMAGE" == *":bad" ]]; then
               echo "❌ Bad image deployed — triggering rollback"
@@ -160,19 +190,16 @@ jobs:
             fi
             sleep 10
           done
-
+          
           git fetch origin main
           git checkout main
           git pull --rebase origin main
-
           git revert HEAD --no-edit --no-commit || true
           git commit -m "Rollback to good image after bad deployment"
           git push origin main
 
           echo "✅ Rollback pushed. Waiting for ArgoCD..."
           kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
-
-
 
       # 16. Rollback to previous good commit (exclude workflow files)
       - name: Rollback deployment
