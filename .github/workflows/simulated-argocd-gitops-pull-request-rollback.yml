@@ -145,7 +145,7 @@ jobs:
         id: good_pr
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
           commit-message: "Deploy initial good image"
           title: "Deploy initial good image"
           branch: "deploy-good-initial"
@@ -154,7 +154,7 @@ jobs:
 
       - name: Merge PR for initial good deployment
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh pr merge ${{ steps.good_pr.outputs.pull-request-number }} --squash --delete-branch
 
@@ -180,7 +180,7 @@ jobs:
         id: bad_pr
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
           commit-message: "Deploy bad image"
           title: "Deploy bad image"
           body: "Automated PR to deploy bad image for rollback test."
@@ -190,7 +190,7 @@ jobs:
 
       - name: Merge PR for bad deployment
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
