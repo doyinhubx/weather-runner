@@ -147,24 +147,31 @@ jobs:
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
-      # 15. Wait for failure
-      - name: Wait for bad image failure
+      # 15. Detect bad image instead of waiting for ArgoCD
+      - name: Detect bad image and rollback
         run: |
-          echo "⏳ Waiting for bad image to fail..."
+          echo "⏳ Waiting for bad image to roll out..."
           for i in {1..30}; do
-            STATUS=$(kubectl get application/weather-app -n argocd -o jsonpath='{.status.health.status}')
-            echo "Current ArgoCD status: $STATUS"
-            if [[ "$STATUS" == "Degraded" ]]; then
-              echo "❌ App degraded as expected"
-              exit 0
-            fi
-            if [[ "$STATUS" == "Progressing" ]]; then
-              echo "⚠️ Still progressing… giving it more time"
+            IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+            echo "Current image: $IMAGE"
+            if [[ "$IMAGE" == *":bad" ]]; then
+              echo "❌ Bad image deployed — triggering rollback"
+              break
             fi
             sleep 10
           done
-          echo "Timed out waiting for failure!"
-          exit 1
+
+          git fetch origin main
+          git checkout main
+          git pull --rebase origin main
+
+          git revert HEAD --no-edit --no-commit || true
+          git commit -m "Rollback to good image after bad deployment"
+          git push origin main
+
+          echo "✅ Rollback pushed. Waiting for ArgoCD..."
+          kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+
 
 
       # 16. Rollback to previous good commit (exclude workflow files)
