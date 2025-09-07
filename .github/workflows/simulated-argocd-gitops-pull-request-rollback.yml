@@ -78,10 +78,6 @@ jobs:
           metadata:
             name: weather-app
             namespace: argocd
-            annotations:
-              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
-              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
-              argocd-image-updater.argoproj.io/write-back-method: git
           spec:
             project: default
             source:
@@ -96,6 +92,13 @@ jobs:
             syncPolicy:
               automated: {}
           EOF
+
+      # 9b. Wait for ArgoCD app to sync & deploy weather-app
+      - name: Wait for ArgoCD to deploy weather-app
+        run: |
+          echo "⏳ Waiting for ArgoCD to sync weather-app..."
+          kubectl wait --for=jsonpath='{.status.sync.status}'=Synced application/weather-app -n argocd --timeout=300s
+          kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
 
       # 10. Update values.yaml and Create PR for good image
       - name: Update values.yaml for good image
@@ -151,7 +154,7 @@ jobs:
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
-        
+
       # # 15. Detect bad image instead of waiting for ArgoCD
       # - name: Detect bad image and rollback
       #   run: |
