@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      workflows: write   # 🔑 allow updating workflow files
 
     steps:
       # 1. Checkout repository
@@ -146,25 +147,30 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
-          
+
       # 15. Wait for failure
       - name: Wait for bad image failure
         run: |
           echo "⏳ Waiting for bad image to fail..."
           kubectl wait --for=jsonpath='{.status.health.status}'=Degraded application/weather-app -n argocd --timeout=300s || true
 
-      # 16. Rollback to previous good commit
+      # 16. Rollback to previous good commit (exclude workflow files)
       - name: Rollback deployment
         run: |
           git fetch origin main
           git checkout main
-          git pull --rebase origin main   # 🔑 ensures we have latest state
+          git pull --rebase origin main   # ensure latest state
 
-          git revert HEAD --no-edit
+          # Revert last commit but exclude workflow files
+          git revert HEAD --no-edit --no-commit
+          git restore --staged .github/workflows/
+          git restore .github/workflows/
+          git commit -m "Rollback deployment (excluding workflow changes)"
           git push origin main
 
           echo "✅ Rollback pushed. Waiting for ArgoCD to reconcile..."
           kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
+
 
 
       # 17. Verify
