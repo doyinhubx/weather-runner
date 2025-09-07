@@ -78,6 +78,10 @@ jobs:
           metadata:
             name: weather-app
             namespace: argocd
+            annotations:
+              argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+              argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+              argocd-image-updater.argoproj.io/write-back-method: git
           spec:
             project: default
             source:
@@ -147,16 +151,7 @@ jobs:
         run: |
           gh pr merge ${{ steps.bad_pr.outputs.pull-request-number }} --squash --delete-branch
 
-     # Debug: Inspect cluster state
-      - name: Debug cluster state
-        run: |
-          echo "🔎 Checking deployments across all namespaces..."
-          kubectl get deployments -A || true
-
-          echo ""
-          echo "🔎 Checking Helm releases across all namespaces..."
-          helm list -A || true
-
+        
       # # 15. Detect bad image instead of waiting for ArgoCD
       # - name: Detect bad image and rollback
       #   run: |
