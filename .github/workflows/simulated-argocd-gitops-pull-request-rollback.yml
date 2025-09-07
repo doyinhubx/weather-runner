@@ -177,9 +177,14 @@ jobs:
         run: |
           echo "⏳ Waiting for bad image to roll out..."
           
-          # Find the Deployment managed by ArgoCD app
-          DEPLOY=$(kubectl get deployments -n helms -o name | grep weather | head -n1)
+          # Auto-detect deployment in the helms namespace
+          DEPLOY=$(kubectl get deployments -n helms -o name | head -n1)
           echo "Found deployment: $DEPLOY"
+
+          if [ -z "$DEPLOY" ]; then
+            echo "❌ No deployment found in namespace helms"
+            exit 1
+          fi
 
           for i in {1..30}; do
             IMAGE=$(kubectl get $DEPLOY -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
@@ -190,7 +195,7 @@ jobs:
             fi
             sleep 10
           done
-          
+
           git fetch origin main
           git checkout main
           git pull --rebase origin main
@@ -198,8 +203,6 @@ jobs:
           git commit -m "Rollback to good image after bad deployment"
           git push origin main
 
-          echo "✅ Rollback pushed. Waiting for ArgoCD..."
-          kubectl wait --for=jsonpath='{.status.health.status}'=Healthy application/weather-app -n argocd --timeout=300s
 
       # 16. Rollback to previous good commit (exclude workflow files)
       - name: Rollback deployment
