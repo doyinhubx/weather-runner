@@ -150,7 +150,7 @@ jobs:
           title: "Deploy initial good image"
           branch: "deploy-good-initial"
           base: main
-          paths: weather-app-helms/values.yaml
+
 
       - name: Merge PR for initial good deployment
         env:
@@ -186,7 +186,7 @@ jobs:
           body: "Automated PR to deploy bad image for rollback test."
           branch: "deploy-bad"
           base: main
-          paths: weather-app-helms/values.yaml
+
 
       - name: Merge PR for bad deployment
         env:
