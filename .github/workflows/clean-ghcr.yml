@@ -1,0 +1,44 @@
+name: Clean Old GHCR Images
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Runs daily at 3:00 AM UTC
+  workflow_dispatch:   # Allows manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      # 2. Authenticate with GitHub Container Registry
+      - name: Authenticate GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. List all images
+      - name: List GHCR images
+        run: |
+          echo "Listing images in ghcr.io/${{ github.repository }}..."
+          gh cr list --repo ${{ github.repository }}
+
+      # 4. Delete old images (example: older than 30 days)
+      - name: Delete old images
+        run: |
+          echo "Deleting images older than 30 days..."
+          # Loop through images and delete if older than 30 days
+          gh cr list --repo ${{ github.repository }} --limit 1000 \
+            | while read image; do
+                IMAGE_NAME=$(echo $image | awk '{print $1}')
+                CREATED=$(echo $image | awk '{print $2}')
+                AGE=$(( ( $(date +%s) - $(date -d "$CREATED" +%s) ) / 86400 ))
+                if [ $AGE -gt 7 ]; then
+                  echo "Deleting $IMAGE_NAME (age: $AGE days)"
+                  gh cr delete $IMAGE_NAME --yes
+                fi
+              done
