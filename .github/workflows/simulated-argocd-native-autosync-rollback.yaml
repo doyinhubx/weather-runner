@@ -25,16 +25,19 @@ jobs:
           curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
           chmod +x kind && sudo mv kind /usr/local/bin/
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
       # 4. Create a temporary Kind cluster
       - name: Create Kind cluster
         run: |
           kind create cluster --name argocd-cluster
+
       # 5. Install ArgoCD in Kind cluster
       - name: Install ArgoCD
         run: |
           kubectl create namespace argocd
           kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
+
       # 6. Forward ArgoCD API (optional for interaction)
       - name: Port-forward ArgoCD server
         run: kubectl port-forward svc/argocd-server -n argocd 8080:443 &
@@ -44,10 +47,12 @@ jobs:
         run: |
           docker build -t weather-app:good -f Dockerfile.good .
           kind load docker-image weather-app:good --name argocd-cluster
+
       - name: Build Bad Image
         run: |
           docker build -t weather-app:bad -f Dockerfile.bad .
           kind load docker-image weather-app:bad --name argocd-cluster
+
       # 8. First deployment (Good Image) via Helm + ArgoCD
       - name: Deploy Good Image
         run: |
@@ -55,10 +60,12 @@ jobs:
             --namespace helms --create-namespace \
             --set image.repository=weather-app \
             --set image.tag=good \
-            --set image.pullPolicy=IfNotPresent
+            --set image.pullPolicy=IfNotPresent \
+            --set ingress.enabled=false
           kubectl apply -f k8s/argocd-apps/weather-app-helm.yaml
           sleep 30
           kubectl get pods -n helms
+
       # 9. Second deployment (Bad Image)
       - name: Deploy Bad Image
         run: |
@@ -67,8 +74,10 @@ jobs:
             --set image.repository=weather-app \
             --set image.tag=bad \
             --set image.pullPolicy=IfNotPresent
+            --set ingress.enabled=false
           sleep 30
           kubectl get pods -n helms
+
       # 10. Third deployment (Good Image again)
       - name: Deploy Good Image Again
         run: |
@@ -77,6 +86,7 @@ jobs:
             --set image.tag=good
           sleep 30
           kubectl get pods -n helms
+
       # 11. Verification step
       - name: Verify ArgoCD Reconciliation
         run: |
@@ -88,6 +98,13 @@ jobs:
             echo "❌ ArgoCD did not reconcile correctly!"
             exit 1
           fi
+
       # 12. Verify final state
       - name: Final Pod Status
         run: kubectl get pods -n helms -o wide
+
+
+    
+     
+
+
