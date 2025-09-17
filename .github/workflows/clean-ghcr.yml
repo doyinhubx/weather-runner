@@ -9,7 +9,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Use secrets.GITHUB_TOKEN for authentication
     steps:
       # 1. Checkout repository
       - name: Checkout Repo
@@ -17,34 +17,31 @@ jobs:
 
       # 2. Install ghcr extension
       - name: Install ghcr extension
-        run: gh extension install cli/gh-ghcr
+        run: gh extension install github/gh-ghcr
 
       # 3. Authenticate with GitHub Container Registry
-      - name: Authenticate GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+     - name: Authenticate GHCR via CLI
+        run: |
+          # Authenticate gh CLI with token for GHCR access
+          echo "$GH_TOKEN" | gh auth login --with-token
       
       # 4. List all images
       - name: List GHCR images
         run: |
           echo "Listing images in ghcr.io/${{ github.repository }}..."
-          gh cr list --repo ${{ github.repository }}
-
+          gh cr list --repo "${{ github.repository }}"
+          
       # 5. Delete old images (example: older than 30 days)
       - name: Delete old images
         run: |
           echo "Deleting images older than 30 days..."
-          # Loop through images and delete if older than 30 days
-          gh cr list --repo ${{ github.repository }} --limit 1000 \
-            | while read image; do
-                IMAGE_NAME=$(echo $image | awk '{print $1}')
-                CREATED=$(echo $image | awk '{print $2}')
-                AGE=$(( ( $(date +%s) - $(date -d "$CREATED" +%s) ) / 86400 ))
-                if [ $AGE -gt 7 ]; then
-                  echo "Deleting $IMAGE_NAME (age: $AGE days)"
-                  gh cr delete $IMAGE_NAME --yes
-                fi
-              done
+          gh cr list --repo "${{ github.repository }}" --limit 1000 | while read line; do
+            IMAGE_NAME=$(echo "$line" | awk '{print $1}')
+            CREATED=$(echo "$line" | awk '{print $2}')
+            # Calculate age (days since creation)
+            AGE=$(($(($(date +%s) - $(date -d "$CREATED" +%s))) / 86400))
+            if [ "$AGE" -gt 30 ]; then
+              echo "Deleting $IMAGE_NAME (age: $AGE days)"
+              gh cr delete "$IMAGE_NAME" --yes
+            fi
+          done
