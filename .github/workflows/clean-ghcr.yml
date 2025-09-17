@@ -13,21 +13,25 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      # 2. Authenticate with GitHub Container Registry
+      # 2. Install ghcr extension
+      - name: Install ghcr extension
+        run: gh extension install cli/gh-ghcr
+
+      # 3. Authenticate with GitHub Container Registry
       - name: Authenticate GHCR
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # 3. List all images
+      
+      # 4. List all images
       - name: List GHCR images
         run: |
           echo "Listing images in ghcr.io/${{ github.repository }}..."
           gh cr list --repo ${{ github.repository }}
 
-      # 4. Delete old images (example: older than 30 days)
+      # 5. Delete old images (example: older than 30 days)
       - name: Delete old images
         run: |
           echo "Deleting images older than 30 days..."
