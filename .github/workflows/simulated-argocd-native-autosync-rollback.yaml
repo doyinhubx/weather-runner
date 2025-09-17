@@ -56,11 +56,12 @@ jobs:
       # 8. First deployment (Good Image) via Helm + ArgoCD
       - name: Deploy Good Image
         run: |
-          helm upgrade --install weather-app-helms weather-app-helms \
+          helm upgrade --install weather-app weather-app-helms \
             --namespace helms --create-namespace \
             --set image.repository=weather-app \
             --set image.tag=good \
             --set image.pullPolicy=IfNotPresent
+            --set ingress.enabled=false
           kubectl apply -f k8s/argocd-apps/weather-app-helm.yaml
           sleep 30
           kubectl get pods -n helms
@@ -73,6 +74,7 @@ jobs:
             --set image.repository=weather-app \
             --set image.tag=bad \
             --set image.pullPolicy=IfNotPresent
+            --set ingress.enabled=false
           sleep 30
           kubectl get pods -n helms
 
@@ -82,6 +84,7 @@ jobs:
           helm upgrade weather-app weather-app-helms \
             --namespace helms \
             --set image.tag=good
+            --set ingress.enabled=false
           sleep 30
           kubectl get pods -n helms
 
