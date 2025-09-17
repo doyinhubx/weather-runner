@@ -56,7 +56,7 @@ jobs:
       # 8. First deployment (Good Image) via Helm + ArgoCD
       - name: Deploy Good Image
         run: |
-          helm upgrade --install weather-app weather-app-helms \
+          helm upgrade --install weather-app-helms weather-app-helms \
             --namespace helms --create-namespace \
             --set image.repository=weather-app \
             --set image.tag=good \
