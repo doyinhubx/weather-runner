@@ -20,7 +20,7 @@ jobs:
         run: gh extension install github/gh-ghcr
 
       # 3. Authenticate with GitHub Container Registry
-     - name: Authenticate GHCR via CLI
+      - name: Authenticate GHCR via CLI
         run: |
           # Authenticate gh CLI with token for GHCR access
           echo "$GH_TOKEN" | gh auth login --with-token
