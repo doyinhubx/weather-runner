@@ -1,6 +1,6 @@
 image:
-  repository: docker.io/eslintpurity/weather-app
-  tag: "good"
+  repository: weather-app
+  tag: latest
   pullPolicy: IfNotPresent
 service:
   type: ClusterIP

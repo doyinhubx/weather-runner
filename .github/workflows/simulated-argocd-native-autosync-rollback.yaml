@@ -1,0 +1,108 @@
+name: Simulate Good → Bad → Good Deployment with ArgoCD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-simulation:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      # 2. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Install kubectl, kind, and Helm
+      - name: Install Kubernetes tools
+        run: |
+          curl -sLo kubectl https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLo kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # 4. Create a temporary Kind cluster
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name argocd-cluster
+
+      # 5. Install ArgoCD in Kind cluster
+      - name: Install ArgoCD
+        run: |
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/argocd-server -n argocd
+
+      # 6. Forward ArgoCD API (optional for interaction)
+      - name: Port-forward ArgoCD server
+        run: kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+
+      # 7. Build & Load Docker Images into Kind
+      - name: Build Good Image
+        run: |
+          docker build -t weather-app:good -f Dockerfile.good .
+          kind load docker-image weather-app:good --name argocd-cluster
+
+      - name: Build Bad Image
+        run: |
+          docker build -t weather-app:bad -f Dockerfile.bad .
+          kind load docker-image weather-app:bad --name argocd-cluster
+
+      # 8. First deployment (Good Image) via Helm + ArgoCD
+      - name: Deploy Good Image
+        run: |
+          helm upgrade --install weather-app weather-app-helms \
+            --namespace helms --create-namespace \
+            --set image.repository=weather-app \
+            --set image.tag=good \
+            --set image.pullPolicy=IfNotPresent
+          kubectl apply -f k8s/argocd-apps/weather-app-helm.yaml
+          sleep 30
+          kubectl get pods -n helms
+
+      # 9. Second deployment (Bad Image)
+      - name: Deploy Bad Image
+        run: |
+          helm upgrade weather-app weather-app-helms \
+            --namespace helms \
+            --set image.repository=weather-app \
+            --set image.tag=bad \
+            --set image.pullPolicy=IfNotPresent
+          sleep 30
+          kubectl get pods -n helms
+
+      # 10. Third deployment (Good Image again)
+      - name: Deploy Good Image Again
+        run: |
+          helm upgrade weather-app weather-app-helms \
+            --namespace helms \
+            --set image.tag=good
+          sleep 30
+          kubectl get pods -n helms
+
+      # 11. Verification step
+      - name: Verify ArgoCD Reconciliation
+        run: |
+          FINAL_IMAGE=$(kubectl get deployment weather-app -n helms -o jsonpath="{.spec.template.spec.containers[0].image}")
+          echo "Final deployed image: $FINAL_IMAGE"
+          if [[ "$FINAL_IMAGE" == *":good" ]]; then
+            echo "✅ ArgoCD successfully reconciled back to good image!"
+          else
+            echo "❌ ArgoCD did not reconcile correctly!"
+            exit 1
+          fi
+
+      # 12. Verify final state
+      - name: Final Pod Status
+        run: kubectl get pods -n helms -o wide
+
+
+    
+     
+
+
