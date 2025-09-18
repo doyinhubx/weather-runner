@@ -1,0 +1,17 @@
+name: Test Hello Shell Action
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Say Hello
+        uses: doyinhubx/hello-shell-action@main
+        with:
+          name: "Doyin"
