@@ -1,0 +1,17 @@
+name: Test Check File Action
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  check-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Verify README
+        uses: doyinhubx/check-file-action@main   # <-- replace with your repo slug
+        with:
+          filepath: "README.md"
