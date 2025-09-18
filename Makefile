@@ -39,13 +39,11 @@
 # 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 # 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
 # 		git checkout $(STAGING_BRANCH); \
-# 		git pull origin $(STAGING_BRANCH); \
 # 		git merge $(CURRENT_BRANCH); \
 # 		git push origin $(STAGING_BRANCH); \
 # 		git checkout $(CURRENT_BRANCH); \
 # 	else \
 # 		echo "✅ Already on $(STAGING_BRANCH). Pulling latest and pushing..."; \
-# 		git pull origin $(STAGING_BRANCH); \
 # 		git push origin $(STAGING_BRANCH); \
 # 	fi
 # 	@echo "✅ Staging deploy triggered via GitHub Actions."
@@ -55,21 +53,76 @@
 # 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 # 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
 # 		git checkout $(STAGING_BRANCH); \
-# 		git pull origin $(STAGING_BRANCH); \
 # 		git merge $(CURRENT_BRANCH); \
 # 		git push origin $(STAGING_BRANCH); \
 # 	fi
 # 	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
 # 	@git checkout $(MAIN_BRANCH)
-# 	@git pull origin $(MAIN_BRANCH)
 # 	@git merge $(STAGING_BRANCH)
 # 	@git push origin $(MAIN_BRANCH)
 # 	@git checkout $(CURRENT_BRANCH)
 # 	@echo "🎉 Production deploy triggered via GitHub Actions."
 
 
-# 3. Uncommitted Changes & Safety Checks + Smart Auto-Stashing
-#----------------------------------------------------------------
+# # 3. Uncommitted Changes & Safety Checks + Smart Auto-Stashing
+# #----------------------------------------------------------------
+# # Define your branches
+# FEATURE_BRANCH = feature/ci-cd-enhancements
+# STAGING_BRANCH ?= staging
+# MAIN_BRANCH ?= main
+
+# # Get current git branch dynamically
+# CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
+
+# .PHONY: deploy-staging deploy-prod check-dirty
+
+# check-dirty:
+# 	@echo "🔍 Checking for uncommitted changes..."
+# 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+# 		echo "📦 Uncommitted changes found. Committing them..."; \
+# 		git add .; \
+# 		git commit -m "🔧 Auto-commit before deploy from $(CURRENT_BRANCH)"; \
+# 	else \
+# 		echo "✅ Working tree clean."; \
+# 	fi
+
+# deploy-staging:
+# 	@$(MAKE) check-dirty
+# 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
+# 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
+# 		echo "⚠️  Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
+# 		git checkout $(STAGING_BRANCH); \
+# 		git merge $(CURRENT_BRANCH); \
+# 		git push origin $(STAGING_BRANCH); \
+# 		git checkout $(CURRENT_BRANCH); \
+# 	else \
+# 		echo "✅ Already on $(STAGING_BRANCH). Just pushing changes..."; \
+# 		git push origin $(STAGING_BRANCH); \
+# 	fi
+	
+# 	@echo "✅ Staging deploy triggered via GitHub Actions."
+
+
+# deploy-prod:
+# 	@$(MAKE) check-dirty
+# 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
+# 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
+# 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
+# 		git checkout $(STAGING_BRANCH); \
+# 		git merge $(CURRENT_BRANCH); \
+# 	fi
+# 	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
+# 	@git checkout $(MAIN_BRANCH)
+# 	@git merge $(STAGING_BRANCH)
+# 	@git push origin $(MAIN_BRANCH)
+# 	@git checkout $(CURRENT_BRANCH)
+	
+# 	@echo "🎉 Production deploy triggered via GitHub Actions."
+
+
+
+# 4. Auto Version Bump & Git Tagging for Production Deploys
+#-------------------------------------------------------------------
 # Define your branches
 FEATURE_BRANCH = feature/ci-cd-enhancements
 STAGING_BRANCH ?= staging
@@ -78,17 +131,32 @@ MAIN_BRANCH ?= main
 # Get current git branch dynamically
 CURRENT_BRANCH := $(shell git symbolic-ref --short HEAD 2>/dev/null)
 
-.PHONY: deploy-staging deploy-prod check-dirty
+VERSION_FILE := VERSION
+INDEX_HTML := public/index.html  # Update this if index.html is in another directory
 
-# Safety check: prevent deploy with uncommitted changes
+.PHONY: deploy-staging deploy-prod check-dirty bump-version
+
 check-dirty:
 	@echo "🔍 Checking for uncommitted changes..."
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
-		echo "⚠️  Uncommitted changes found. Stashing..."; \
-		git stash push -u -m "Auto-stash before deploy-staging"; \
+		echo "📦 Uncommitted changes found. Committing them..."; \
+		git add .; \
+		git commit -m "🔧 Auto-commit before deploy from $(CURRENT_BRANCH)"; \
 	else \
 		echo "✅ Working tree clean."; \
 	fi
+
+bump-version:
+	@echo "🔢 Current version: $$(cat $(VERSION_FILE))"
+	@current_version=$$(cat $(VERSION_FILE)); \
+	IFS='.' read -r major minor patch <<< $$current_version; \
+	new_version="$$major.$$minor.$$((patch+1))"; \
+	echo "⬆️  Bumping version to $$new_version"; \
+	echo "$$new_version" > $(VERSION_FILE); \
+	\
+	# Inject new version into index.html \
+	sed -i "s/app version [0-9]\+\.[0-9]\+\.[0-9]\+/app version $$new_version/" $(INDEX_HTML); \
+	echo "📝 Updated version in $(INDEX_HTML)"
 
 deploy-staging:
 	@$(MAKE) check-dirty
@@ -103,201 +171,25 @@ deploy-staging:
 		echo "✅ Already on $(STAGING_BRANCH). Just pushing changes..."; \
 		git push origin $(STAGING_BRANCH); \
 	fi
+	
 	@echo "✅ Staging deploy triggered via GitHub Actions."
 
 deploy-prod:
+	@$(MAKE) bump-version
 	@$(MAKE) check-dirty
 	@echo "🔍 Current branch: $(CURRENT_BRANCH)"
 	@if [ "$(CURRENT_BRANCH)" != "$(STAGING_BRANCH)" ]; then \
 		echo "🔁 Merging $(CURRENT_BRANCH) → $(STAGING_BRANCH)..."; \
 		git checkout $(STAGING_BRANCH); \
 		git merge $(CURRENT_BRANCH); \
-		git push origin $(STAGING_BRANCH); \
 	fi
 	@echo "🚀 Merging $(STAGING_BRANCH) → $(MAIN_BRANCH)..."
 	@git checkout $(MAIN_BRANCH)
 	@git merge $(STAGING_BRANCH)
 	@git push origin $(MAIN_BRANCH)
 	@git checkout $(CURRENT_BRANCH)
+	
 	@echo "🎉 Production deploy triggered via GitHub Actions."
-
-
-
-# Uncommitted Changes & Safety Checks
-#-------------------------------------------------------------------
-
-# #  Semantic patch for version bump + tagging
-# #-----------------------------------------------------------------
-# STAGING_BRANCH=staging
-# MAIN_BRANCH=main
-
-# # Auto-detect the current branch before switching
-# CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-
-# .PHONY: deploy-staging deploy-prod
-
-# deploy-staging:
-# 	@if [ "$(CURRENT_BRANCH)" = "$(STAGING_BRANCH)" ] || [ "$(CURRENT_BRANCH)" = "$(MAIN_BRANCH)" ]; then \
-# 		echo "❌ ERROR: You must run this from a feature branch, not '$(CURRENT_BRANCH)'."; \
-# 		exit 1; \
-# 	fi
-# 	@if ! git diff-index --quiet HEAD --; then \
-# 		echo "💡 Uncommitted changes detected:"; \
-# 		git status --short; \
-# 		echo "💾 Stashing changes..."; \
-# 		git stash push -m "Auto-stash before staging deploy"; \
-# 		TO_RESTORE_STASH=true; \
-# 	else \
-# 		TO_RESTORE_STASH=false; \
-# 	fi; \
-# 	echo "✅ Merging $(CURRENT_BRANCH) into $(STAGING_BRANCH)..."; \
-# 	git checkout $(STAGING_BRANCH); \
-# 	git pull origin $(STAGING_BRANCH); \
-# 	git merge $(CURRENT_BRANCH); \
-# 	git push origin $(STAGING_BRANCH); \
-# 	git checkout $(CURRENT_BRANCH); \
-# 	if $$TO_RESTORE_STASH; then \
-# 		echo "♻️ Restoring stashed changes..."; \
-# 		git stash pop; \
-# 	fi; \
-# 	echo "🚀 Staging deploy triggered via GitHub Actions. Switched back to $(CURRENT_BRANCH)."
-
-# deploy-prod:
-# 	@if ! git diff-index --quiet HEAD --; then \
-# 		echo "💡 Uncommitted changes detected:"; \
-# 		git status --short; \
-# 		echo "💾 Stashing changes..."; \
-# 		git stash push -m "Auto-stash before production deploy"; \
-# 		TO_RESTORE_STASH=true; \
-# 	else \
-# 		TO_RESTORE_STASH=false; \
-# 	fi; \
-# 	echo "✅ Merging $(STAGING_BRANCH) into $(MAIN_BRANCH)..."; \
-# 	git checkout $(MAIN_BRANCH); \
-# 	git pull origin $(MAIN_BRANCH); \
-# 	git merge $(STAGING_BRANCH); \
-# 	git push origin $(MAIN_BRANCH); \
-# 	git checkout $(CURRENT_BRANCH); \
-# 	if $$TO_RESTORE_STASH; then \
-# 		echo "♻️ Restoring stashed changes..."; \
-# 		git stash pop; \
-# 	fi; \
-# 	echo "🚀 Production deploy triggered via GitHub Actions. Switched back to $(CURRENT_BRANCH)."
-
-
-# .PHONY: deploy-local
-
-# deploy-local:
-# 	@if [ "$(CURRENT_BRANCH)" = "$(STAGING_BRANCH)" ] || [ "$(CURRENT_BRANCH)" = "$(MAIN_BRANCH)" ]; then \
-# 		echo "❌ ERROR: Run this from a feature branch, not '$(CURRENT_BRANCH)'."; \
-# 		exit 1; \
-# 	fi
-# 	@if ! git diff-index --quiet HEAD --; then \
-# 		echo "💾 Detected uncommitted changes. Stashing..."; \
-# 		git stash push -m "Auto-stash before local deploy"; \
-# 		TO_RESTORE_STASH=true; \
-# 	else \
-# 		TO_RESTORE_STASH=false; \
-# 	fi; \
-# 	echo "🔄 Merging $(CURRENT_BRANCH) into a temporary local '$(STAGING_BRANCH)'..."; \
-# 	git fetch origin $(STAGING_BRANCH); \
-# 	git checkout -b temp-merge-test origin/$(STAGING_BRANCH); \
-# 	git merge $(CURRENT_BRANCH); \
-# 	echo "✅ Local merge successful."; \
-# 	git checkout $(CURRENT_BRANCH); \
-# 	git branch -D temp-merge-test; \
-# 	if $$TO_RESTORE_STASH; then \
-# 		echo "♻️ Restoring stashed changes..."; \
-# 		git stash pop; \
-# 	fi; \
-# 	echo "🧪 Local deploy test complete. No remote changes made."
-
-
-
-# #Updated Makefile with Branch-Version Constraints / Semantic Versioning (SemVer)
-# #-----------------------------------------------
-# .PHONY: release
-
-# VERSION_FILE=VERSION
-# INDEX_HTML=public/index.html
-# VERSION_TYPE?=patch  # Default to patch
-
-# release:
-# 	@CURRENT_BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
-# 	\
-# 	# Enforce release constraints per branch \
-# 	if [ "$$CURRENT_BRANCH" = "staging" ] && [ "$(VERSION_TYPE)" != "patch" ]; then \
-# 		echo "❌ ERROR: Only patch releases are allowed from 'staging'. Use VERSION_TYPE=patch."; \
-# 		exit 1; \
-# 	fi; \
-# 	if [ "$$CURRENT_BRANCH" = "main" ] && [ "$(VERSION_TYPE)" = "patch" ]; then \
-# 		echo "❌ ERROR: Patch releases must go through 'staging'. Use VERSION_TYPE=minor or major."; \
-# 		exit 1; \
-# 	fi; \
-# 	if echo "$$CURRENT_BRANCH" | grep -Eq '^(dev|feature/.+)' ; then \
-# 		echo "❌ ERROR: No releases allowed from '$$CURRENT_BRANCH'."; \
-# 		exit 1; \
-# 	fi; \
-# 	\
-# 	echo "🔖 Current version: $$(cat $(VERSION_FILE))"; \
-# 	ver=$$(cat $(VERSION_FILE)); \
-# 	major=$$(echo $$ver | cut -d. -f1); \
-# 	minor=$$(echo $$ver | cut -d. -f2); \
-# 	patch=$$(echo $$ver | cut -d. -f3); \
-# 	\
-# 	case "$(VERSION_TYPE)" in \
-# 		patch) \
-# 			new_patch=$$(($$patch + 1)); \
-# 			new_version="$$major.$$minor.$$new_patch"; \
-# 			;; \
-# 		minor) \
-# 			new_minor=$$(($$minor + 1)); \
-# 			new_version="$$major.$$new_minor.0"; \
-# 			;; \
-# 		major) \
-# 			new_major=$$(($$major + 1)); \
-# 			new_version="$$new_major.0.0"; \
-# 			;; \
-# 		*) \
-# 			echo "❌ ERROR: Invalid VERSION_TYPE='$(VERSION_TYPE)'. Use 'patch', 'minor', or 'major'."; \
-# 			exit 1; \
-# 			;; \
-# 	esac; \
-# 	\
-# 	echo "⬆️  Bumping version to $$new_version"; \
-# 	echo "$$new_version" > $(VERSION_FILE); \
-# 	\
-# 	# Update version in index.html \
-# 	@sed -i "s/app version [0-9]\+\.[0-9]\+\.[0-9]\+/app version $$new_version/" $(INDEX_HTML)
-# 	\
-# 	git add $(VERSION_FILE) $(INDEX_HTML); \
-# 	git commit -m "chore: bump version to $$new_version"; \
-# 	git tag -a "v$$new_version" -m "Release version $$new_version"; \
-# 	git push origin $$CURRENT_BRANCH; \
-# 	git push origin "v$$new_version"; \
-# 	echo "✅ Released version $$new_version from branch '$$CURRENT_BRANCH'"
-
-
-# #production deploy and version bump with a single command
-# .PHONY: deploy-and-release
-
-# deploy-and-release:
-# 	@echo "🚀 Deploying to production..."
-# 	make deploy-prod
-
-# 	@echo "🏷️  Bumping and tagging release version ($(VERSION_TYPE))..."
-# 	make release VERSION_TYPE=$(VERSION_TYPE)
-
-# 	@echo "🔁 Redeploying to ensure version is live..."
-# 	make deploy-prod
-
-
-
-
-
-
-
-
 
 
 

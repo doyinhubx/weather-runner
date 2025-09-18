@@ -1,9 +1,20 @@
 title = "Security Rules"
-load-default = true  # 👈 Keeps built-in rules
+load-default = true  # Keeps built-in rules
 
 [[rules]]
 id = "custom-api-key"  # Required field
 description = "Custom API Key Pattern"
 regex = '''(?i)(?:key|api|token|secret)[\s:=]+([a-z0-9\-_]{20,})'''
 tags = ["key", "api-key"]
-entropy = 3.5  # Reduces false positives
+
+# Reduces false positives
+entropy = 3.5
+
+# Add an allowlist to ignore env var placeholders or safe patterns
+[allowlist]
+description = "Ignore environment variable placeholders and Pulumi secret commands"
+regexes = [
+    '''\$SERVICE_ACCOUNT_KEY''',       	 # Ignore $SERVICE_ACCOUNT_KEY
+    '''pulumi config set --secret.*'''   # Ignore Pulumi secret commands
+]
+

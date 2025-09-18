@@ -16,32 +16,36 @@ on:
 jobs:
   ci:
     name: Run CI (Lint, Test, Audit)
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            node-version: 20.x  # LTS
-          - os: ubuntu-latest
-            node-version: 21.x  # Current
+    runs-on: ubuntu-latest
+    # runs-on: ${{ matrix.os }}
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     include:
+    #       - os: ubuntu-latest
+    #         node-version: 20.x  # LTS
+    #       - os: ubuntu-latest
+    #         node-version: 21.x  # Current
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for Gitleaks full history scan
 
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          # node-version: ${{ matrix.node-version }}
+          node-version: 20
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.node-version }}-
+      # - name: Cache npm dependencies
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.npm
+      #     key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-node-${{ matrix.node-version }}-
 
       - name: Install dependencies
         run: npm ci
@@ -53,17 +57,15 @@ jobs:
       - name: Run tests with coverage
         run: npm test -- --ci --reporters=default --coverage
 
-      # # 🚨 Gitleaks - Secrets Scanner
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
+      # # Gitleaks - Secrets Scanner
+      # - name: Gitleaks
+      #   uses: gitleaks/gitleaks-action@v2
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   with:
-      #     fetch-depth: 0  # Required for full commit history
-
-      # - name: Run Gitleaks via CLI
-      #   run: |
-      #     wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
-      #     mkdir -p gitleaks && tar -xzf gitleaks_8.24.3_linux_x64.tar.gz -C gitleaks
-      #     ./gitleaks/gitleaks detect --redact --verbose --log-opts=-1 --report-format sarif --report-path results.sarif --config .gitleaks.toml
+      #     config-path: .gitleaks.toml
+      #     # The action automatically handles report generation and uploading.
+      #   continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
 
       # # 🛡️ Security: Audit Dependencies
       # - name: Run npm audit
@@ -162,7 +164,7 @@ jobs:
 
   # # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
   # #-----------------------------------------------------------------------------
-  production-deploy:
+  prod-deploy:
     name: Deploy to GitHub Pages (Production env)
     needs: ci
     runs-on: ubuntu-latest
@@ -184,7 +186,6 @@ jobs:
       #       Commit: `${{ github.sha }}`  
       #       Please approve in GitHub Environments → Production.
       #     SLACK_COLOR: warning
-
 
       # - name: Notify Discord of Awaiting Production Approval
       #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -229,11 +230,25 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Deploy to GitHub Pages
-        run: |
-          npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+      # # Save build artifact for rollback use
+      # - uses: actions/upload-artifact@v4
+      #   if: success()
+      #   with:
+      #     name: static-site-public
+      #     path: ./public
+      #     retention-days: 7
+
+      - name: Inject GoatCounter URL
+        run: node scripts/inject-goatcounter.js
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOATCOUNTER_URL: ${{ secrets.GOATCOUNTER_URL }}
+          PINGDOM_ID: ${{ secrets.PINGDOM_ID }}
+
+      - name: Deploy to GitHub Pages with peaceiris
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
 
 
   #     # Slack Notifications
@@ -304,6 +319,108 @@ jobs:
   #           }' $DISCORD_WEBHOOK
 
 
+  # For  Rollbacks
+  # ---------------------------------------------------------
+  # prod-build:
+  #   name: Build & Backup
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Build project
+  #       run: npm run build
+
+  #     # ✅ ADD THIS: Upload artifacts for rollback
+  #     - name: Upload build artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+  #         retention-days: 7
+
+  #     # Push build to backups branch
+  #     - name: Backup build to branch
+  #       run: |
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         npx gh-pages --dist public --branch build-backups --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --message "Backup build $GITHUB_RUN_ID" --no-history
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # prod-deploy:
+  #   name: Deploy to GitHub Pages
+  #   needs: prod-build
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: production
+  #     url: https://${{ github.repository_owner }}.github.io/weather-runner
+  #   steps:
+  #     - name: Download build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+
+  #     # ✅ INTENTIONALLY FAIL THE DEPLOYMENT STEP
+  #     - name: Deploy to GitHub Pages (with intentional failure)
+  #       if: github.ref != 'refs/heads/main'  # Only fail on test branches
+  #       run: |
+  #         # First deploy successfully
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+  #         # Then fail to trigger rollback
+  #         echo "Simulating deployment failure"
+  #         exit 1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  #     - name: Deploy to GitHub Pages (normal)
+  #       if: github.ref == 'refs/heads/main'  # Only on main branch
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: ./public
+  #         force_orphan: true
+
+  # rollback-deploy:
+  #   name: Rollback Last Successful Build
+  #   needs: prod-deploy
+  #   runs-on: ubuntu-latest
+  #   if: always()  # Temporary: always run to debug
+  #   steps:
+  #     - name: Download last successful build
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+
+  #     # ✅ USE THE GH-PAGES ACTION FOR ROLLBACK TOO
+  #     - name: Deploy rollback build
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: ./public
+  #         force_orphan: true
+
+  #     - name: Notify rollback
+  #       run: |
+  #         echo "✅ Successfully rolled back to last stable build"
+  #         echo "Rollback triggered because prod-deploy failed"
+
+
+  # DOCKER JOB
+  # ----------------------------------------------------------
   # docker:
   #   name: Build & Push Docker Image
   #   needs: ci
@@ -357,12 +474,12 @@ jobs:
   #       with:
   #         image-ref: weather-app:latest
   #         format: 'table'
-  #         exit-code: '0'
+  #         exit-code: '0' # Fail on CRITICAL or HIGH vulnerabilities
   #         severity: 'CRITICAL,HIGH'
   #         output: trivy-results.txt
 
   #     - name: Upload Trivy Scan Report
-  #       if: failure()
+  #       # This step will always run, whether the Trivy scan passes or fails.
   #       uses: actions/upload-artifact@v4
   #       with:
   #         name: trivy-report
@@ -1251,3 +1368,8 @@ jobs:
   #         terraform workspace delete -force ${{ github.run_id }}
   #       working-directory: ./terraform/dev/app
   #       continue-on-error: true
+
+
+
+
+

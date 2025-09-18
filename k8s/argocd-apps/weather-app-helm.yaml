@@ -3,12 +3,18 @@ kind: Application
 metadata:
   name: weather-app-helms
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: weather-app=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+    argocd-image-updater.argoproj.io/weather-app.helm.image-name: image.repository
+    argocd-image-updater.argoproj.io/weather-app.helm.image-tag: image.tag
+    argocd-image-updater.argoproj.io/weather-app.update-strategy: latest
+    argocd-image-updater.argoproj.io/write-back-method: git
 spec:
   project: default
   source:
     repoURL: https://github.com/doyinhubx/weather-runner.git
     targetRevision: main
-    path: weather-app-helms   # path to your Helm chart
+    path: weather-app-helms
     helm:
       valueFiles:
         - values.yaml
@@ -19,3 +25,6 @@ spec:
     automated:
       selfHeal: true
       prune: true
+
+
+

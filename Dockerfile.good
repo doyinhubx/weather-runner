@@ -1,0 +1,20 @@
+# Stage 1: Build the app
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# Stage 2: Serve app
+FROM node:20-alpine AS runtime
+RUN npm install -g serve
+
+WORKDIR /app
+COPY --from=builder /app/public ./public
+
+EXPOSE 8080
+CMD ["serve", "-s", "public", "-l", "8080"]

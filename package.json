@@ -1,7 +1,7 @@
 {
-  "name": "ci-cd-demo",
+  "name": "javascriptweatherapp-cicd",
   "version": "1.0.0",
-  "description": "Node.js CI/CD Demo",
+  "description": "JavaScript CI/CD for a Weather Application",
   "homepage": "https://doyinhubx.github.io/weather-runner",
   "main": "index.js",
   "type": "commonjs",
@@ -36,6 +36,7 @@
     "jsdom": "^26.1.0",
     "lint-staged": "^16.0.0",
     "npm-run-all": "^4.1.5",
+    "replace-in-file": "^8.3.0",
     "semantic-release": "^24.2.5",
     "serve": "^14.2.4",
     "watchify": "^4.0.0"
