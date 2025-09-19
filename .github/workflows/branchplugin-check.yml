@@ -1,0 +1,17 @@
+name: Branch Check Demo
+
+on:
+  push:
+    branches:
+      - '*'     # run on all branches
+
+jobs:
+  validate-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run Branch Pattern Check
+        uses: ./check-branch   # or your repo path if published as an action
+        with:
+          pattern: '^feature/'
