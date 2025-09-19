@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
       - name: Run Branch Pattern Check
-        uses: ./check-branch   # or your repo path if published as an action
+        uses: doyinhubx/check-branch-action@v1
         with:
           pattern: '^feature/'
