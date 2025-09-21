@@ -1,0 +1,1375 @@
+name: Weather App CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - dev
+      - feature/**  # allows feature branches like feature/ci-cd-enhancements
+  pull_request:
+    branches:
+      - main
+      - staging
+      - dev
+
+jobs:
+  ci:
+    name: Run CI (Lint, Test, Audit)
+    runs-on: ubuntu-latest
+    # runs-on: ${{ matrix.os }}
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     include:
+    #       - os: ubuntu-latest
+    #         node-version: 20.x  # LTS
+    #       - os: ubuntu-latest
+    #         node-version: 21.x  # Current
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for Gitleaks full history scan
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          # node-version: ${{ matrix.node-version }}
+          node-version: 20
+
+      # - name: Cache npm dependencies
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.npm
+      #     key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-node-${{ matrix.node-version }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 🔍 Lint and Test
+      - name: Run lint (includes security plugin)
+        run: npm run lint
+
+      - name: Run tests with coverage
+        run: npm test -- --ci --reporters=default --coverage
+
+      # # Gitleaks - Secrets Scanner
+      # - name: Gitleaks
+      #   uses: gitleaks/gitleaks-action@v2
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     config-path: .gitleaks.toml
+      #     # The action automatically handles report generation and uploading.
+      #   continue-on-error: true # Keep this to allow the workflow to continue even if leaks are found.
+
+      # # 🛡️ Security: Audit Dependencies
+      # - name: Run npm audit
+      #   run: npm audit --audit-level=high
+
+      # # ✅ Upload to Coveralls
+      # - name: Debug coverage file
+      #   run: ls -R coverage
+
+      # - name: Upload coverage to Coveralls
+      #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+      #   uses: coverallsapp/github-action@v2
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     path-to-lcov: coverage/lcov.info
+
+      # # 🔐 CodeQL - Static Analysis
+      # - name: Initialize CodeQL
+      #   uses: github/codeql-action/init@v3
+      #   with:
+      #     languages: javascript
+
+      # - name: Perform CodeQL Analysis
+      #   uses: github/codeql-action/analyze@v3
+
+      # # 📊 SonarQube Scan
+      # - name: SonarQube Scan
+      #   uses: SonarSource/sonarqube-scan-action@v2.0.2
+      #   with:
+      #     projectBaseDir: .
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # # ❌ Block build if SonarQube Quality Gate fails
+      # - name: Check SonarQube Quality Gate
+      #   uses: SonarSource/sonarqube-quality-gate-action@v1.1.0
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+
+      # Slack Notifications
+      #---------------------------------------------------
+      # - name: Notify Slack of CI Automated Tests Success
+      #   if: success()
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
+      #     SLACK_MESSAGE: |
+      #       ✅ *CI Automated Test Completed*  
+      #       Repository: `${{ github.repository }}`  
+      #       Branch: `${{ github.ref_name }}`  
+      #       Commit: `${{ github.sha }}`  
+      #       URL: https://${{ github.repository_owner }}.github.io/weather-runner
+      #     SLACK_COLOR: good
+
+
+      # - name: Notify on CI Success
+      #   if: success()
+      #   uses: slackapi/slack-github-action@v1.24.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": ":white_check_mark: CI Successful on `${{ github.repository }}`",
+      #         "blocks": [
+      #           {
+      #             "type": "section",
+      #             "text": {
+      #               "type": "mrkdwn",
+      #               "text": "*CI Successful on `${{ github.ref_name }}`*\n\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}\nWorkflow: `${{ github.workflow }}`"
+      #             }
+      #           }
+      #         ]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEFAULT }}
+
+
+      # - name: Notify Discord of CI Automated Tests Success
+      #   if: success()
+      #   env:
+      #     DISCORD_WEBHOOK: ${{ secrets.DISCORD_DEFAULT_WEBHOOK}}
+      #   run: |
+      #     curl -H "Content-Type: application/json" \
+      #       -X POST \
+      #       -d '{
+      #         "embeds": [{
+      #           "title": "✅ CI Automated Tests Completed",
+      #           "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n**URL:** https://${{ github.repository_owner }}.github.io/weather-runner",
+      #           "color": 65280
+      #         }]
+      #       }' $DISCORD_WEBHOOK
+
+
+  # # Production Job Deployment to GitHub Pages wih Docker Build to DockerHub and GCR
+  # #-----------------------------------------------------------------------------
+  prod-deploy:
+    name: Deploy to GitHub Pages (Production env)
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # only for main
+    environment:
+      name: production
+      url: https://${{ github.repository_owner }}.github.io/weather-runner  # adjust if needed
+
+    steps:
+      # - name: Notify Slack of Awaiting Production Approval
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+      #     SLACK_MESSAGE: |
+      #       🛑 *Production Deployment Pending Approval*  
+      #       Repository: `${{ github.repository }}`  
+      #       Branch: `${{ github.ref_name }}`  
+      #       Commit: `${{ github.sha }}`  
+      #       Please approve in GitHub Environments → Production.
+      #     SLACK_COLOR: warning
+
+      # - name: Notify Discord of Awaiting Production Approval
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   env:
+      #     DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+      #   run: |
+      #     curl -H "Content-Type: application/json" \
+      #       -X POST \
+      #       -d '{
+      #         "embeds": [{
+      #           "title": "🛑 Production Deployment Pending Approval",
+      #           "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\n🔒 Please approve this deployment via **GitHub → Environments → Production**.",
+      #           "color": 16753920
+      #         }]
+      #       }' $DISCORD_WEBHOOK
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Allows GitHub Actions caching
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Build project
+        run: npm run build
+
+      # # Save build artifact for rollback use
+      # - uses: actions/upload-artifact@v4
+      #   if: success()
+      #   with:
+      #     name: static-site-public
+      #     path: ./public
+      #     retention-days: 7
+
+      - name: Inject GoatCounter URL
+        run: node scripts/inject-goatcounter.js
+        env:
+          GOATCOUNTER_URL: ${{ secrets.GOATCOUNTER_URL }}
+          PINGDOM_ID: ${{ secrets.PINGDOM_ID }}
+
+      - name: Deploy to GitHub Pages with peaceiris
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+
+
+  #     # Slack Notifications
+  #     #---------------------------------------------------
+  #     - name: Notify Slack of Production Deploy Success
+  #       if: success()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+  #         SLACK_MESSAGE: |
+  #           ✅ *Production Deployment Completed*  
+  #           Repository: `${{ github.repository }}`  
+  #           Branch: `${{ github.ref_name }}`  
+  #           Commit: `${{ github.sha }}`  
+  #           URL: https://${{ github.repository_owner }}.github.io/weather-runner
+  #         SLACK_COLOR: good
+
+  #     - name: Notify Slack of Production Deploy Failure
+  #       if: failure()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_PROD }}
+  #         SLACK_MESSAGE: |
+  #           ❌ *Production Deployment Failed*  
+  #           Repository: `${{ github.repository }}`  
+  #           Branch: `${{ github.ref_name }}`  
+  #           Commit: `${{ github.sha }}`  
+  #           Please check GitHub Actions logs.
+  #         SLACK_COLOR: danger
+
+  #     - name: Send Slack notification (Production)
+  #       run: |
+  #         curl -X POST -H 'Content-type: application/json' \
+  #         --data '{"text": ":rocket: *Prod Deploy Complete*\nRepository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\nCommit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nBranch: production"}' \
+  #         ${{ secrets.SLACK_WEBHOOK_PROD }}
+
+
+  #     # Discord Notifications
+  #     #--------------------------------------------------
+  #     - name: Notify Discord of Production Deploy Success
+  #       if: success()
+  #       env:
+  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+  #       run: |
+  #         curl -H "Content-Type: application/json" \
+  #           -X POST \
+  #           -d '{
+  #             "embeds": [{
+  #               "title": "✅ Production Deployment Completed",
+  #               "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n**URL:** https://${{ github.repository_owner }}.github.io/weather-runner",
+  #               "color": 65280
+  #             }]
+  #           }' $DISCORD_WEBHOOK
+
+  #     - name: Notify Discord of Production Deploy Failure
+  #       if: failure()
+  #       env:
+  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_PROD_WEBHOOK }}
+  #       run: |
+  #         curl -H "Content-Type: application/json" \
+  #           -X POST \
+  #           -d '{
+  #             "embeds": [{
+  #               "title": "❌ Production Deployment Failed",
+  #               "description": "**Repository:** `${{ github.repository }}`\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n\nPlease check the GitHub Actions logs for details.",
+  #               "color": 16711680
+  #             }]
+  #           }' $DISCORD_WEBHOOK
+
+
+  # For  Rollbacks
+  # ---------------------------------------------------------
+  # prod-build:
+  #   name: Build & Backup
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Build project
+  #       run: npm run build
+
+  #     # ✅ ADD THIS: Upload artifacts for rollback
+  #     - name: Upload build artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+  #         retention-days: 7
+
+  #     # Push build to backups branch
+  #     - name: Backup build to branch
+  #       run: |
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         npx gh-pages --dist public --branch build-backups --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --message "Backup build $GITHUB_RUN_ID" --no-history
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # prod-deploy:
+  #   name: Deploy to GitHub Pages
+  #   needs: prod-build
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: production
+  #     url: https://${{ github.repository_owner }}.github.io/weather-runner
+  #   steps:
+  #     - name: Download build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+
+  #     # ✅ INTENTIONALLY FAIL THE DEPLOYMENT STEP
+  #     - name: Deploy to GitHub Pages (with intentional failure)
+  #       if: github.ref != 'refs/heads/main'  # Only fail on test branches
+  #       run: |
+  #         # First deploy successfully
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         npx gh-pages -d public -r https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+  #         # Then fail to trigger rollback
+  #         echo "Simulating deployment failure"
+  #         exit 1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  #     - name: Deploy to GitHub Pages (normal)
+  #       if: github.ref == 'refs/heads/main'  # Only on main branch
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: ./public
+  #         force_orphan: true
+
+  # rollback-deploy:
+  #   name: Rollback Last Successful Build
+  #   needs: prod-deploy
+  #   runs-on: ubuntu-latest
+  #   if: always()  # Temporary: always run to debug
+  #   steps:
+  #     - name: Download last successful build
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: build-output
+  #         path: public/
+
+  #     # ✅ USE THE GH-PAGES ACTION FOR ROLLBACK TOO
+  #     - name: Deploy rollback build
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: ./public
+  #         force_orphan: true
+
+  #     - name: Notify rollback
+  #       run: |
+  #         echo "✅ Successfully rolled back to last stable build"
+  #         echo "Rollback triggered because prod-deploy failed"
+
+
+  # DOCKER JOB
+  # ----------------------------------------------------------
+  # docker:
+  #   name: Build & Push Docker Image
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+
+  #     - name: Log in to Docker Hub
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: docker.io
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  #     - name: Log in to GitHub Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GHCR_PAT }}
+
+  #     # # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
+  #     # - name: Build and push Docker image
+  #     #   uses: docker/build-push-action@v5
+  #     #   with:
+  #     #     context: .
+  #     #     push: true
+  #     #     tags: |
+  #     #       docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+  #     #       ghcr.io/${{ github.repository_owner }}/weather-app:latest
+  #     #     cache-from: type=gha
+  #     #     cache-to: type=gha, mode=max
+
+  #     - name: Build Docker image
+  #       run: |
+  #         docker build \
+  #           -t weather-app:latest \
+  #           -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
+  #           -t ghcr.io/${{ github.repository_owner }}/weather-app:latest \
+  #           .
+
+  #     # Trivy - Docker image vulnerability scan
+  #     - name: Scan Docker image with Trivy
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         image-ref: weather-app:latest
+  #         format: 'table'
+  #         exit-code: '0' # Fail on CRITICAL or HIGH vulnerabilities
+  #         severity: 'CRITICAL,HIGH'
+  #         output: trivy-results.txt
+
+  #     - name: Upload Trivy Scan Report
+  #       # This step will always run, whether the Trivy scan passes or fails.
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: trivy-report
+  #         path: trivy-results.txt
+
+  #     - name: Push Docker image
+  #       if: success()
+  #       run: |
+  #         docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+  #         docker push ghcr.io/${{ github.repository_owner }}/weather-app:latest
+
+
+  # Staging Job Deployment to Firebase Hosting
+  #-----------------------------------------------------------------------------
+  staging-deploy:
+    name: Deploy to Firebase Hosting (Staging)
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url: https://weather-runner-70a64.web.app/  # only for staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'  # Updated to Node.js 20 (required for Firebase CLI v14+)
+
+      # Allows GitHub Actions caching
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: weather-runner-70a64
+          channelId: live  # optional: can use preview channels too (staging-preview)
+         
+
+      - name: Notify Slack of Staging Deploy Success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_STAGING }}
+          SLACK_MESSAGE: |
+            ✅ *Staging Deployment Successful*  
+            Repository: `${{ github.repository }}`  
+            Branch: `${{ github.ref_name }}`  
+            Commit: `${{ github.sha }}`  
+            URL: https://weather-runner-70a64.web.app/
+          SLACK_COLOR: good
+
+      - name: Notify Slack of Staging Deploy Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_STAGING }}
+          SLACK_MESSAGE: |
+            ❌ *Staging Deployment Failed*
+            Repo: `${{ github.repository }}`
+            Branch: `${{ github.ref_name }}`
+            Commit: `${{ github.sha }}`
+          SLACK_COLOR: danger
+
+      
+  #-----------------------------------------------------------------------------
+  # Dev Job Alternate Deployment to Cloud Run (with Cloud Build, DockerHub, Artifact Registry, Pulumi and Terraform)
+  #-----------------------------------------------------------------------------
+  # Cloud Run Dev Deployment using DockerHub (SA: weather-app-sa - weather-app project)
+  #-----------------------------------------------------------     
+  # dev-deploy:
+  #   name: Deploy to Google Cloud Run (Dev)
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/dev'
+  #   environment:
+  #     name: dev
+  #     url: ${{ steps.deploy.outputs.url }}
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20.x'
+  #         cache: 'npm'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Build project
+  #       run: npm run build
+
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+
+  #     - name: Log in to Docker Hub
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: docker.io
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  #     - name: Build and push Docker image
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: .
+  #         push: true
+  #         tags: |
+  #           docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+  #           docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ github.sha }}
+            
+  #     - name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+
+  #     - name: Set up Cloud SDK
+  #       uses: google-github-actions/setup-gcloud@v2
+
+  #     - name: Deploy to Cloud Run (Dev)
+  #       id: deploy
+  #       run: |
+  #         gcloud run deploy weather-app-dev \
+  #           --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
+  #           --project ${{ secrets.GCP_PROJECT_ID }} \
+  #           --region us-central1 \
+  #           --platform managed \
+  #           --allow-unauthenticated \
+  #           --update-env-vars NODE_ENV=dev \
+  #           --timeout 5m \
+  #           --port 8080
+
+  #     - name: Output Cloud Run URL
+  #       run: |
+  #         SERVICE_URL=$(gcloud run services describe weather-app-dev --region us-central1 --format 'value(status.url)')
+  #         echo "Deployed to: $SERVICE_URL"
+      
+
+
+  # # Cloud Run Dev Deployment with Artifact Registry (SA: weather-app-sa - weather-app project)
+  # #-----------------------------------------------------------
+  # dev-deploy:
+  #   name: Deploy to Google Cloud Run (Dev)
+  #   needs: ci
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/dev'
+  #   environment:
+  #     name: dev
+  #     url: ${{ steps.deploy.outputs.url }}
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20.x'
+  #         cache: 'npm'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Build project
+  #       run: npm run build
+
+  #     - name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+  #     - name: Set up Cloud SDK
+  #       uses: google-github-actions/setup-gcloud@v2
+
+  #     - name: Configure Docker to use Artifact Registry
+  #       run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+  #     - name: Build Docker image
+  #       run: |
+  #         docker build \
+  #           -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest \
+  #           -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:${{ github.sha }} \
+  #           .
+
+  #     - name: Push Docker images to Artifact Registry
+  #       run: |
+  #         docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest
+  #         docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:${{ github.sha }}
+
+  #     - name: Wait for propagation
+  #       run: sleep 60  # 1 minutes for propagation
+
+  #     - name: Deploy to Cloud Run (Dev)
+  #       id: deploy
+  #       run: |
+  #         gcloud run deploy weather-app-dev \
+  #           --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repo/weather-app:latest \
+  #           --region us-central1 \
+  #           --platform managed \
+  #           --allow-unauthenticated \
+  #           --update-env-vars NODE_ENV=dev \
+  #           --timeout 5m \
+  #           --port 8080
+
+  #     - name: Output Cloud Run URL
+  #       run: |
+  #         SERVICE_URL=$(gcloud run services describe weather-app-dev --region us-central1 --format 'value(status.url)')
+  #         echo "Deployed to: $SERVICE_URL"
+
+  #     - name: Notify Slack of Dev Deploy
+  #       if: success()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+  #         SLACK_MESSAGE: |
+  #           ✅ *Dev Deployment Successful*
+  #           Repo: `${{ github.repository }}`
+  #           Branch: `${{ github.ref_name }}`
+  #           Commit: `${{ github.sha }}`
+  #         SLACK_COLOR: good
+  #     - name: Notify Slack of Dev Deploy Failure
+  #       if: failure()
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+  #         SLACK_MESSAGE: |
+  #           ❌ *Dev Deployment Failed*
+  #           Repo: `${{ github.repository }}`
+  #           Branch: `${{ github.ref_name }}`
+  #           Commit: `${{ github.sha }}`
+  #         SLACK_COLOR: danger
+
+
+
+# # # Cloud Run (Dev Deployment) with Pulumi Infra Provisioning (SA: pulumi-dev-deployer - weather-app2 project)
+# # #-----------------------------------------------------------------        
+#   infra-deploy:
+#     name: Provision GCP Infra via Pulumi (Dev)
+#     needs: ci
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/dev'
+#     environment:
+#       name: dev
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Pulumi
+#         uses: pulumi/actions@v4
+#         with:
+#           pulumi-version: 3.x
+
+#       - name: Authenticate as admin
+#         uses: google-github-actions/auth@v2
+#         with:
+#           credentials_json: '${{ secrets.GCP_ADMIN_SA_KEY }}'
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+#       - name: Set up Cloud SDK
+#         uses: google-github-actions/setup-gcloud@v2
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.11'
+
+#       - name: Set up virtual environment and install Python dependencies
+#         working-directory: ./pulumi
+#         run: |
+#           python -m venv venv
+#           source venv/bin/activate
+#           pip install -r requirements.txt
+
+#       - name: Set up Pulumi stack
+#         working-directory: ./pulumi
+#         run: |
+#           source venv/bin/activate
+#           pulumi login
+#           pulumi stack select dev || pulumi stack init dev --non-interactive
+#         env:
+#           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+#       # Fixed config step - moved BEFORE preview and using env vars
+#       - name: Set Pulumi config
+#         working-directory: ./pulumi
+#         run: |
+#           source venv/bin/activate
+#           pulumi config set project "$PROJECT_ID"
+#           pulumi config set region "$REGION"
+#           pulumi config set --secret gcpServiceAccountKey "$SERVICE_ACCOUNT_KEY"
+#         env:
+#           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+#           REGION: ${{ secrets.GCP_REGION }}  # Fix typo: REGION not REGION
+#           SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_ADMIN_SA_KEY }}
+
+#       - name: Run Pulumi preview
+#         working-directory: ./pulumi
+#         run: |
+#           source venv/bin/activate
+#           pulumi preview -s dev
+#         env:
+#           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+   
+
+#   dev-deploy:
+#     name: Deploy to Google Cloud Run (Dev)
+#     needs: [ci, infra-deploy]
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/dev'
+#     environment:
+#       name: dev
+#       url: ${{ steps.deploy.outputs.url }}
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '20.x'
+#           cache: 'npm'
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Build project
+#         run: npm run build
+
+#       - name: Verify service account
+#         run: |
+#           echo "Service account email:"
+#           echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' | jq -r .client_email
+#           echo "Should be: pulumi-dev-deployer@weather-app2-460914.iam.gserviceaccount.com"
+
+#       # Use admin credentials for Docker operations
+#       - name: Authenticate to Google Cloud (Admin)
+#         uses: google-github-actions/auth@v2
+#         with:
+#           credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+#           create_credentials_file: true
+#           export_environment_variables: true
+
+#       - name: Set up Cloud SDK
+#         uses: google-github-actions/setup-gcloud@v2
+
+#       - name: Wait for IAM propagation
+#         run: sleep 60  # 5 minutes for propagation
+
+#       # - name: Authenticate to Google Cloud for Docker
+#       #   id: auth_docker # Add an ID for this step to reference its outputs
+#       #   uses: google-github-actions/auth@v2
+#       #   with:
+#       #     credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+#       #     project_id: ${{ secrets.GCP_PROJECT_ID }}
+#       #     token_format: 'access_token' # Ensure access_token is outputted
+
+#       # - name: Login to Artifact Registry
+#       #   uses: docker/login-action@v3
+#       #   with:
+#       #     registry: ${{ secrets.GCP_REGION }}-docker.pkg.dev
+#       #     username: oauth2accesstoken
+#       #     password: ${{ steps.auth_docker.outputs.access_token }} # Reference the access_token from the previous step
+
+#       - name: Authenticate Docker with access token
+#         run: |
+#           echo '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}' > $HOME/gcp-key.json
+#           gcloud auth activate-service-account --key-file=$HOME/gcp-key.json
+#           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+#           gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+
+#       # THIS IS THE CRITICAL DEBUGGING STEP FOR YOUR CURRENT PROBLEM
+#       - name: Debug Docker Image Tag
+#         run: |
+#           IMAGE_FULL_TAG="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}"
+#           echo "Attempting to build and push image with tag: $IMAGE_FULL_TAG"
+#           echo "Region: ${{ secrets.GCP_REGION }}"
+#           echo "Project ID: ${{ secrets.GCP_PROJECT_ID }}"
+#           echo "Repo Name: my-nodejs-app-repo"
+#           echo "Image Name: nodejs-app"
+
+#       - name: Build Docker image
+#         run: |
+#           docker build \
+#             -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+#             -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} \
+#             .
+
+#       - name: Test Artifact Registry permissions
+#         run: |
+#           gcloud artifacts repositories get-iam-policy my-nodejs-app-repo \
+#             --location=us-central1 --project=${{ secrets.GCP_PROJECT_ID }}
+
+#       - name: Push Docker images (with admin fallback)
+#         run: |
+#           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }} || {
+#             echo "Falling back to admin credentials..."
+#             docker logout https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+#             echo '${{ secrets.GCP_ADMIN_SA_KEY }}' | docker login -u _json_key --password-stdin https://${{ secrets.GCP_REGION }}-docker.pkg.dev
+#             docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:${{ github.sha }}
+#           }
+
+#       - name: Deploy to Cloud Run
+#         id: deploy
+#         run: |
+#           gcloud run deploy nodejs-cloudrun-service \
+#             --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-nodejs-app-repo/nodejs-app:latest \
+#             --region ${{ secrets.GCP_REGION }} \
+#             --platform managed \
+#             --allow-unauthenticated \
+#             --update-env-vars NODE_ENV=dev \
+#             --timeout 5m \
+#             --port 8080
+
+#       - name: Output Cloud Run URL
+#         run: |
+#           SERVICE_URL=$(gcloud run services describe nodejs-cloudrun-service --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')
+#           echo "Deployed to: $SERVICE_URL"
+#           echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+
+
+#       # Slack Notifications
+#       - name: Notify Slack of Dev Deploy
+#         if: success()
+#         uses: rtCamp/action-slack-notify@v2
+#         env:
+#           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+#           SLACK_MESSAGE: |
+#             ✅ *Dev Deployment Successful*
+#             Repo: `${{ github.repository }}`
+#             Branch: `${{ github.ref_name }}`
+#             Commit: `${{ github.sha }}`
+#           SLACK_COLOR: good
+
+#       - name: Notify Slack of Dev Deploy Failure
+#         if: failure()
+#         uses: rtCamp/action-slack-notify@v2
+#         env:
+#           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+#           SLACK_MESSAGE: |
+#             ❌ *Dev Deployment Failed*
+#             Repo: `${{ github.repository }}`
+#             Branch: `${{ github.ref_name }}`
+#             Commit: `${{ github.sha }}`
+#           SLACK_COLOR: danger
+
+
+
+# # Cloud Run (Dev Deployment) with Terraform Infra Deploy (Single Job -  Inefficient)
+# #-----------------------------------------------------------------  
+#   dev-deploy:
+#     name: Deploy to Google Cloud Run (Dev)
+#     needs: [ci]
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/dev'
+#     environment:
+#       name: dev
+#       url: ${{ steps.tf-output.outputs.service_url }}
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '20.x'
+#           cache: 'npm'
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Build project
+#         run: npm run build
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           credentials_json: '${{ secrets.GCP_DEV_SA_KEY }}'
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+#       - name: Set up Cloud SDK
+#         uses: google-github-actions/setup-gcloud@v2
+
+#       # 1. CREATE STATE BUCKET WITH PROPER PERMISSIONS
+#       - name: Create Terraform State Bucket
+#         run: |
+#           BUCKET_NAME="weather-app-tfstate-v2"
+#           # Create bucket if not exists
+#           if ! gsutil ls gs://$BUCKET_NAME; then
+#             gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
+#           fi
+#           # Grant permissions to service account
+#           gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
+
+#       # 2. INIT TERRAFORM WITH EXPLICIT BACKEND CONFIG
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: 1.7.0
+
+#       - name: Terraform Init
+#         run: |
+#           terraform init \
+#             -backend-config="bucket=weather-app-tfstate-v2" \
+#             -backend-config="prefix=dev"
+#         working-directory: ./terraform/dev
+#         env:
+#           GOOGLE_CREDENTIALS: '${{ secrets.GCP_DEV_SA_KEY }}'
+
+#     # ... rest of your steps unchanged ...
+
+#       - name: Create Artifact Registry
+#         run: |
+#           terraform apply -auto-approve \
+#             -target=google_artifact_registry_repository.weather_appv2 \
+#             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+#             -var="region=us-central1"
+#         working-directory: ./terraform/dev
+
+#       # NOW configure Docker and push images
+#       - name: Configure Docker
+#         run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+#       - name: Build Docker image
+#         run: |
+#           docker build \
+#             -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.ref_name }}-${{ github.sha }} \
+#             -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.ref_name }}-latest \
+#             .
+
+#       - name: Push Docker images
+#         run: |
+#           docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.ref_name }}-${{ github.sha }}
+#           docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/weather-app-repov2/weather-appv2:${{ github.ref_name }}-latest
+
+#       # FINALLY: Deploy Cloud Run service
+#       - name: Deploy to Cloud Run
+#         id: tf-apply
+#         run: |
+#           terraform apply -auto-approve \
+#             -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+#             -var="region=us-central1" \
+#             -var="image_tag=${{ github.ref_name }}-${{ github.sha }}"
+#         working-directory: ./terraform/dev
+
+#       - name: Extract Service URL
+#         id: tf-output
+#         run: |
+#           url=$(terraform output -raw service_url)
+#           echo "service_url=$url" >> $GITHUB_OUTPUT
+#         working-directory: ./terraform/dev
+
+
+#       # Slack notifications
+#       - name: Notify Slack of Dev Deploy
+#         if: success()
+#         uses: rtCamp/action-slack-notify@v2
+#         env:
+#           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+#           SLACK_MESSAGE: |
+#             ✅ *Dev Deployment Successful (Terraform)*
+#             Repo: `${{ github.repository }}`
+#             Branch: `${{ github.ref_name }}`
+#             Commit: `${{ github.sha }}`
+#             URL: ${{ steps.tf-output.outputs.service_url }}
+#           SLACK_COLOR: good
+
+#       - name: Notify Slack of Dev Deploy Failure
+#         if: failure()
+#         uses: rtCamp/action-slack-notify@v2
+#         env:
+#           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+#           SLACK_MESSAGE: |
+#             ❌ *Dev Deployment Failed (Terraform)*
+#             Repo: `${{ github.repository }}`
+#             Branch: `${{ github.ref_name }}`
+#             Commit: `${{ github.sha }}`
+#           SLACK_COLOR: danger
+
+
+# # Cloud Run (Dev Deployment) with Terraform Infra Provisiing (infra-deploy and dev-deploy split with Post-Deployment Cleanup Job)
+# #-----------------------------------------------------------------  
+  infra-deploy:
+    name: Setup Terraform Infrastructure
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+    outputs:
+      tf_bucket: ${{ steps.tf-bucket.outputs.bucket_name }}
+      repo_name: ${{ steps.tf-infra.outputs.artifact_repo }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # # Create Terraform State Bucket Dynaically (Not Efficient)
+      # - name: Create Terraform State Bucket
+      #   id: tf-bucket
+      #   run: |
+      #     BUCKET_NAME="weather-app-tfstate-v2-${{ github.run_id }}"
+      #     gsutil mb -p ${{ secrets.GCP_PROJECT_ID }} -l us-central1 gs://$BUCKET_NAME
+      #     gsutil iam ch serviceAccount:${{ secrets.GCP_SA_EMAIL }}:roles/storage.admin gs://$BUCKET_NAME
+      #     echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+
+      # Create Terraform State Bucket with pre-created static bucket
+      - name: Use Predefined Bucket
+        id: tf-bucket
+        run: |
+          echo "bucket_name=weather-app-tfstate-v2" >> $GITHUB_OUTPUT
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
+      - name: Init Terraform for Artifact Registry
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ steps.tf-bucket.outputs.bucket_name }}" \
+            -backend-config="prefix=artifact-registry"
+        working-directory: ./terraform/dev/artifact-registry
+
+      #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
+      - name: Validate Terraform
+        run: terraform validate
+        working-directory: ./terraform/dev/artifact-registry
+
+      - name: Terraform Plan (for Artifact Registry)
+        run: |
+          terraform plan \
+          -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+          -var="region=us-central1"
+        working-directory: ./terraform/dev/artifact-registry
+
+      - name: Apply Artifact Registry Only
+        id: tf-infra
+        run: |
+          terraform apply -auto-approve -input=false -lock-timeout=300s \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="region=us-central1"
+          repo_name=$(terraform output -raw artifact_repo_name)
+          echo "artifact_repo=$repo_name" >> $GITHUB_OUTPUT
+        working-directory: ./terraform/dev/artifact-registry
+
+  dev-deploy:
+    name: Deploy to Google Cloud Run (Dev)
+    needs: [ci, infra-deploy]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+      url: ${{ steps.tf-output.outputs.service_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      # Build and push using repo name from infra job
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-${{ github.sha }} \
+            -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-latest \
+            .
+
+      - name: Push Docker images
+        run: |
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-${{ github.sha }}
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ needs.infra-deploy.outputs.repo_name }}/weather-appv2:${{ github.ref_name }}-latest
+
+      # Initialize Terraform with same state bucket
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ needs.infra-deploy.outputs.tf_bucket }}" \
+            -backend-config="prefix=app"
+        working-directory: ./terraform/dev/app
+        env:
+          GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+
+      # Add lock cleanup before any operations
+      - name: Clean Stale Locks
+        run: |
+          # List and remove stale locks older than 15 minutes
+          gsutil ls gs://${{ needs.infra-deploy.outputs.tf_bucket }}/app/*.tflock | while read lock; do
+            created=$(gsutil stat $lock | grep "Creation time:" | cut -d: -f2-)
+            lock_time=$(date -d "$created" +%s)
+            current_time=$(date +%s)
+            if (( current_time - lock_time > 900 )); then
+              echo "Removing stale lock: $lock"
+              gsutil rm $lock
+            fi
+          done
+        continue-on-error: true
+
+      # - name: Import Cloud Run service if exists
+      #   run: |
+      #     SERVICE_NAME="weather-app-devv2"
+      #     REGION="us-central1"
+      #     PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+      #     TF_RESOURCE="google_cloud_run_service.weather_app_devv2"
+
+      #     EXISTS=$(gcloud run services describe $SERVICE_NAME --region=$REGION --project=$PROJECT_ID --format="value(metadata.name)" || true)
+
+      #     if [ "$EXISTS" = "$SERVICE_NAME" ]; then
+      #       echo "Service $SERVICE_NAME exists. Importing into Terraform..."
+      #       terraform import $TF_RESOURCE projects/$PROJECT_ID/locations/$REGION/services/$SERVICE_NAME || true
+      #     else
+      #       echo "Service $SERVICE_NAME does not exist. Proceeding with creation."
+      #     fi
+      #   working-directory: ./terraform/dev/app
+      #   env:
+      #     GOOGLE_CREDENTIALS: '${{ secrets.GCP_PULUMI_DEV_SA_KEY }}'
+
+      #terraform validate and terraform plan not strictly required, but it's best practice for visibility and debugging
+      - name: Validate Terraform (App)
+        run: terraform validate
+        working-directory: ./terraform/dev/app
+
+      - name: Terraform Plan (App)
+        run: |
+          terraform plan \
+          -lock-timeout=300s \
+          -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+          -var="region=us-central1" \
+          -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
+          -var="artifact_repo=${{ needs.infra-deploy.outputs.repo_name }}"
+        working-directory: ./terraform/dev/app
+
+      # Deploy Cloud Run service
+      - name: Deploy to Cloud Run
+        id: tf-apply
+        run: |
+          terraform apply -auto-approve -lock-timeout=5m \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="region=us-central1" \
+            -var="image_tag=${{ github.ref_name }}-${{ github.sha }}" \
+            -var="artifact_repo=${{ needs.infra-deploy.outputs.repo_name }}"
+        working-directory: ./terraform/dev/app
+
+      - name: Extract Service URL
+        id: tf-output
+        run: |
+          url=$(terraform output -raw service_url)
+          echo "service_url=$url" >> $GITHUB_OUTPUT
+        working-directory: ./terraform/dev/app
+
+
+      # Slack notifications
+      - name: Notify Slack of Dev Deploy
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+          SLACK_MESSAGE: |
+            ✅ *Dev Deployment Successful (Terraform)*
+            Repo: `${{ github.repository }}`
+            Branch: `${{ github.ref_name }}`
+            Commit: `${{ github.sha }}`
+            URL: ${{ steps.tf-output.outputs.service_url }}
+          SLACK_COLOR: good
+
+      - name: Notify Slack of Dev Deploy Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_DEV }}
+          SLACK_MESSAGE: |
+            ❌ *Dev Deployment Failed (Terraform)*
+            Repo: `${{ github.repository }}`
+            Branch: `${{ github.ref_name }}`
+            Commit: `${{ github.sha }}`
+          SLACK_COLOR: danger
+
+
+  # # Terraform Post-Deployment Cleanup - to prevent state bloat
+  # # ------------------------------------------------
+  cleanup:
+    name: Cleanup Terraform Workspace
+    needs: dev-deploy
+    runs-on: ubuntu-latest
+    # only run on successful dev branch deploys
+    if: ${{ github.ref == 'refs/heads/dev' && success() }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Initialize Terraform (Dev workspace)
+        working-directory: ./terraform/dev/app
+        run: |
+          terraform init \
+            -backend-config="bucket=weather-app-tfstate-v2" \
+            -backend-config="prefix=app"
+
+      - name: Delete run-specific workspace
+        working-directory: ./terraform/dev/app
+        run: |
+          # if the workspace exists, select & delete it
+          if terraform workspace list | grep -q "${{ github.run_id }}"; then
+            terraform workspace select "${{ github.run_id }}"
+            terraform workspace delete -force "${{ github.run_id }}"
+          else
+            echo "Workspace ${{ github.run_id }} does not exist; nothing to clean up."
+          fi
+        continue-on-error: true
+
+
+  # cleanup:
+  #   name: Cleanup
+  #   needs: dev-deploy
+  #   if: ${{ github.ref == 'refs/heads/dev' && success() }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+        
+  #     - name: Select Workspace
+  #       run: |
+  #         terraform init -backend-config="bucket=weather-app-tfstate-v2" -backend-config="prefix=app"
+  #         terraform workspace select ${{ github.run_id }}
+  #         terraform workspace delete -force ${{ github.run_id }}
+  #       working-directory: ./terraform/dev/app
+  #       continue-on-error: true
+
+
+
+
+
