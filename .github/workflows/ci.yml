@@ -421,75 +421,75 @@ jobs:
 
   # DOCKER JOB
   # ----------------------------------------------------------
-  # docker:
-  #   name: Build & Push Docker Image
-  #   needs: ci
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/main'
+  docker:
+    name: Build & Push Docker Image
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-  #     - name: Log in to Docker Hub
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: docker.io
-  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
-  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  #     - name: Log in to GitHub Container Registry
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GHCR_PAT }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
 
-  #     # # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
-  #     # - name: Build and push Docker image
-  #     #   uses: docker/build-push-action@v5
-  #     #   with:
-  #     #     context: .
-  #     #     push: true
-  #     #     tags: |
-  #     #       docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
-  #     #       ghcr.io/${{ github.repository_owner }}/weather-app:latest
-  #     #     cache-from: type=gha
-  #     #     cache-to: type=gha, mode=max
+      # # Cache Docker layers efficiently using GitHub Actions' built-in cache backend for Docker layers
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: |
+      #       docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+      #       ghcr.io/${{ github.repository_owner }}/weather-app:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha, mode=max
 
-  #     - name: Build Docker image
-  #       run: |
-  #         docker build \
-  #           -t weather-app:latest \
-  #           -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
-  #           -t ghcr.io/${{ github.repository_owner }}/weather-app:latest \
-  #           .
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t weather-app:latest \
+            -t docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest \
+            -t ghcr.io/${{ github.repository_owner }}/weather-app:latest \
+            .
 
-  #     # Trivy - Docker image vulnerability scan
-  #     - name: Scan Docker image with Trivy
-  #       uses: aquasecurity/trivy-action@master
-  #       with:
-  #         image-ref: weather-app:latest
-  #         format: 'table'
-  #         exit-code: '0' # Fail on CRITICAL or HIGH vulnerabilities
-  #         severity: 'CRITICAL,HIGH'
-  #         output: trivy-results.txt
+      # Trivy - Docker image vulnerability scan
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: weather-app:latest
+          format: 'table'
+          exit-code: '0' # Fail on CRITICAL or HIGH vulnerabilities
+          severity: 'CRITICAL,HIGH'
+          output: trivy-results.txt
 
-  #     - name: Upload Trivy Scan Report
-  #       # This step will always run, whether the Trivy scan passes or fails.
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: trivy-report
-  #         path: trivy-results.txt
+      - name: Upload Trivy Scan Report
+        # This step will always run, whether the Trivy scan passes or fails.
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-results.txt
 
-  #     - name: Push Docker image
-  #       if: success()
-  #       run: |
-  #         docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
-  #         docker push ghcr.io/${{ github.repository_owner }}/weather-app:latest
+      - name: Push Docker image
+        if: success()
+        run: |
+          docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+          docker push ghcr.io/${{ github.repository_owner }}/weather-app:latest
 
 
   # Staging Job Deployment to Firebase Hosting
